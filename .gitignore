@@ -1,0 +1,88 @@
+# UWSN Research Project .gitignore
+
+# ============================================
+# Simulation Results (regeneratable)
+# ============================================
+results/
+*.csv
+
+# ============================================
+# Generated Graphs (regeneratable)
+# ============================================
+graphs/
+*.pdf
+*.png
+*.svg
+
+# ============================================
+# Python
+# ============================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+venv/
+ENV/
+.venv/
+
+# ============================================
+# IDE / Editor
+# ============================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.cproject
+.settings/
+
+# ============================================
+# OS
+# ============================================
+.DS_Store
+Thumbs.db
+*.log
+
+# ============================================
+# ns-3 (do not track ns-3 installation)
+# ============================================
+# ns-3 is installed separately in ~/ns3/
+# Do not add ns-allinone-* folders to this repo
+
+# ============================================
+# Temporary files
+# ============================================
+*.tmp
+*.temp
+*.bak
+*.orig
+
+# ============================================
+# LaTeX (if generating paper)
+# ============================================
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.synctex.gz
+*.toc
+*.out
+

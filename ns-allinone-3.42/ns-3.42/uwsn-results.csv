@@ -1,6 +1,0 @@
-run,protocol,nodes,sinks,simStop,range,areaX,areaY,minDepth,maxDepth,data_rate_bps,packet_size_bytes,packets_sent,packets_received,pdr,throughput_bps,avg_delay_ms,min_delay_ms,max_delay_ms,std_delay_ms,network_lifetime_s,dead_nodes,initial_energy_per_node,tx_power,rx_power,idle_power,total_initial_energy,total_consumed_energy,total_residual_energy,avg_energy_per_node,energy_efficiency_pkts_per_j
-1,VBF,100,1,100,100,400,400,0,400,1000,40,310,233,0.751613,745.6,0,0,0,0,100,0,500,2,0.1,0.001,51000,94.0395,50906,0.921956,2.47768
-1,VBF,100,1,100,100,400,400,0,400,500,40,155,152,0.980645,486.4,0,0,0,0,100,0,500,2,0.1,0.001,51000,55.1427,50944.9,0.540615,2.75648
-1,VBF,100,1,100,100,400,400,0,400,1000,40,310,233,0.751613,745.6,0,0,0,0,100,0,500,2,0.1,0.001,51000,94.0395,50906,0.921956,2.47768
-1,VBF,100,1,100,100,400,400,0,400,2000,40,621,286,0.460548,915.2,0,0,0,0,100,0,500,2,0.1,0.001,51000,117.786,50882.2,1.15476,2.42813
-1,VBF,100,1,100,100,400,400,0,400,5000,40,1554,463,0.297941,1481.6,0,0,0,0,100,0,500,2,0.1,0.001,51000,172.891,50827.1,1.69501,2.67798
