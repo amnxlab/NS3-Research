@@ -5,12 +5,13 @@ UWSN Protocol Comparison - Experiment Runner
 Automates running multiple simulation experiments with different:
 - Protocols (VBF, DBR, flooding)
 - Node counts
-- Data rates (CBR traffic)
 - Random seeds (run numbers)
+
+Parses simulation output to extract PDR from Aqua-Sim channel counters.
 
 Usage:
     python run_experiments.py [--runs 30] [--parallel 4]
-    python run_experiments.py --data-rates 1000 5000 10000 --runs 10
+    python run_experiments.py --protocols VBF DBR --nodes 100 --runs 10
 """
 
 import subprocess
@@ -18,8 +19,9 @@ import os
 import sys
 import argparse
 import time
+import re
+import csv
 from pathlib import Path
-from multiprocessing import Pool, cpu_count
 from datetime import datetime
 
 # Configuration - Updated paths after reorganization
@@ -33,8 +35,6 @@ PROGRAM_NAME = "uwsn-research"
 # Experiment parameters
 PROTOCOLS = ["VBF", "DBR", "flooding"]
 NODE_COUNTS = [50, 100, 150, 200]
-DATA_RATES = [10000]  # CBR data rates in bps (default: 10kbps)
-PACKET_SIZE = 40  # bytes
 DEFAULT_RUNS = 30
 DEFAULT_SIM_TIME = 1000
 
@@ -71,9 +71,43 @@ def setup_simulation():
     return True
 
 
+def parse_simulation_output(output):
+    """
+    Parse simulation stdout to extract metrics from Aqua-Sim PrintCounters.
+    
+    Expected format from PrintCounters:
+        Sent Pkts: 1234
+        Sent Data: 5678
+        Recv Pkts: 900
+        ...
+    """
+    metrics = {
+        'sent_pkts': 0,
+        'recv_pkts': 0,
+        'pdr': 0.0
+    }
+    
+    # Parse Aqua-Sim channel counter output
+    # Look for patterns like "Sent Pkts: 1234" or "SendUp Pkts: 567"
+    sent_match = re.search(r'Sent\s+Pkts[:\s]+(\d+)', output, re.IGNORECASE)
+    recv_match = re.search(r'(?:Recv|SendUp)\s+Pkts[:\s]+(\d+)', output, re.IGNORECASE)
+    
+    if sent_match:
+        metrics['sent_pkts'] = int(sent_match.group(1))
+    
+    if recv_match:
+        metrics['recv_pkts'] = int(recv_match.group(1))
+    
+    # Calculate PDR
+    if metrics['sent_pkts'] > 0:
+        metrics['pdr'] = metrics['recv_pkts'] / metrics['sent_pkts']
+    
+    return metrics
+
+
 def run_single_experiment(params):
     """Run a single experiment with given parameters."""
-    protocol, nodes, run_number, sim_time, data_rate, packet_size, csv_file = params
+    protocol, nodes, run_number, sim_time, data_rate, packet_size, range_m = params
     
     cmd = [
         "./ns3", "run",
@@ -84,7 +118,8 @@ def run_single_experiment(params):
         f"--simStop={sim_time} "
         f"--dataRate={data_rate} "
         f"--packetSize={packet_size} "
-        f"--csvFile={csv_file}"
+        f"--range={range_m} "
+        f"--csvFile=/dev/null"  # Don't write individual CSVs
     ]
     
     try:
@@ -97,81 +132,147 @@ def run_single_experiment(params):
         )
         
         if result.returncode == 0:
-            return (True, protocol, nodes, run_number, data_rate, None)
+            # Parse the output to get PDR and other metrics
+            metrics = parse_simulation_output(result.stdout)
+            return {
+                'success': True,
+                'protocol': protocol,
+                'nodes': nodes,
+                'run_number': run_number,
+                'sim_time': sim_time,
+                'data_rate': data_rate,
+                'packet_size': packet_size,
+                'range': range_m,
+                'sent_pkts': metrics['sent_pkts'],
+                'recv_pkts': metrics['recv_pkts'],
+                'pdr': metrics['pdr'],
+                'stdout': result.stdout,
+                'error': None
+            }
         else:
-            return (False, protocol, nodes, run_number, data_rate, result.stderr)
+            return {
+                'success': False,
+                'protocol': protocol,
+                'nodes': nodes,
+                'run_number': run_number,
+                'error': result.stderr
+            }
     
     except subprocess.TimeoutExpired:
-        return (False, protocol, nodes, run_number, data_rate, "Timeout")
+        return {
+            'success': False,
+            'protocol': protocol,
+            'nodes': nodes,
+            'run_number': run_number,
+            'error': "Timeout"
+        }
     except Exception as e:
-        return (False, protocol, nodes, run_number, data_rate, str(e))
+        return {
+            'success': False,
+            'protocol': protocol,
+            'nodes': nodes,
+            'run_number': run_number,
+            'error': str(e)
+        }
 
 
-def run_experiments_sequential(experiments, csv_file, packet_size):
-    """Run experiments sequentially with progress tracking."""
+def parse_energy_from_output(output):
+    """Extract energy metrics from simulation output."""
+    energy = {
+        'network_lifetime': 0.0,
+        'dead_nodes': 0,
+        'total_initial_energy': 0.0,
+        'total_consumed_energy': 0.0,
+        'total_residual_energy': 0.0,
+        'avg_energy_per_node': 0.0
+    }
+    
+    # Parse various metrics from output
+    patterns = {
+        'network_lifetime': r'Network Lifetime:\s+([\d.]+)',
+        'dead_nodes': r'Dead Nodes:\s+(\d+)',
+        'total_initial_energy': r'Total Initial Energy:\s+([\d.]+)',
+        'total_consumed_energy': r'Total Consumed Energy:\s+([\d.]+)',
+        'total_residual_energy': r'Total Residual Energy:\s+([\d.]+)',
+        'avg_energy_per_node': r'Avg Energy/Node:\s+([\d.]+)'
+    }
+    
+    for key, pattern in patterns.items():
+        match = re.search(pattern, output, re.IGNORECASE)
+        if match:
+            energy[key] = float(match.group(1))
+    
+    return energy
+
+
+def run_experiments(experiments, csv_file):
+    """Run all experiments and save results to CSV."""
     total = len(experiments)
     completed = 0
     failed = []
+    results = []
     
-    print(f"\nRunning {total} experiments sequentially...")
-    print("=" * 60)
-    
-    start_time = time.time()
-    
-    for params in experiments:
-        protocol, nodes, run_num, sim_time, data_rate = params
-        params_with_csv = (protocol, nodes, run_num, sim_time, data_rate, packet_size, csv_file)
-        
-        completed += 1
-        progress = (completed / total) * 100
-        elapsed = time.time() - start_time
-        eta = (elapsed / completed) * (total - completed) if completed > 0 else 0
-        
-        print(f"[{completed}/{total}] ({progress:.1f}%) "
-              f"Protocol={protocol}, Nodes={nodes}, Rate={data_rate}bps, Run={run_num} "
-              f"| ETA: {eta/60:.1f}min")
-        
-        success, proto, n, run, rate, err = run_single_experiment(params_with_csv)
-        
-        if not success:
-            failed.append((proto, n, run, rate, err))
-            print(f"  FAILED: {err[:50]}..." if err else "  FAILED")
-    
-    return failed
-
-
-def run_experiments_parallel(experiments, csv_file, num_workers, packet_size):
-    """Run experiments in parallel."""
-    total = len(experiments)
-    
-    # Add csv_file and packet_size to all params
-    experiments_with_csv = [
-        (p, n, r, s, rate, packet_size, csv_file) for p, n, r, s, rate in experiments
-    ]
-    
-    print(f"\nRunning {total} experiments with {num_workers} parallel workers...")
-    print("=" * 60)
+    print(f"\nRunning {total} experiments...")
+    print("=" * 70)
     
     start_time = time.time()
-    failed = []
-    completed = 0
     
-    with Pool(num_workers) as pool:
-        for result in pool.imap_unordered(run_single_experiment, experiments_with_csv):
+    # Open CSV for writing
+    with open(csv_file, 'w', newline='') as f:
+        fieldnames = [
+            'run', 'protocol', 'nodes', 'sim_time', 'range',
+            'data_rate_bps', 'packet_size_bytes',
+            'sent_pkts', 'recv_pkts', 'pdr',
+            'network_lifetime_s', 'dead_nodes',
+            'total_initial_energy', 'total_consumed_energy',
+            'total_residual_energy', 'avg_energy_per_node'
+        ]
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        
+        for params in experiments:
+            result = run_single_experiment(params)
             completed += 1
-            success, proto, n, run, rate, err = result
             
             progress = (completed / total) * 100
             elapsed = time.time() - start_time
             eta = (elapsed / completed) * (total - completed) if completed > 0 else 0
             
-            status = "OK" if success else "FAIL"
-            print(f"[{completed}/{total}] ({progress:.1f}%) "
-                  f"{proto}, Nodes={n}, Rate={rate}bps, Run={run} -> {status} "
-                  f"| ETA: {eta/60:.1f}min")
-            
-            if not success:
-                failed.append((proto, n, run, rate, err))
+            if result['success']:
+                # Parse energy from output
+                energy = parse_energy_from_output(result['stdout'])
+                
+                # Write to CSV
+                row = {
+                    'run': result['run_number'],
+                    'protocol': result['protocol'],
+                    'nodes': result['nodes'],
+                    'sim_time': result['sim_time'],
+                    'range': result['range'],
+                    'data_rate_bps': result['data_rate'],
+                    'packet_size_bytes': result['packet_size'],
+                    'sent_pkts': result['sent_pkts'],
+                    'recv_pkts': result['recv_pkts'],
+                    'pdr': result['pdr'],
+                    'network_lifetime_s': energy['network_lifetime'],
+                    'dead_nodes': energy['dead_nodes'],
+                    'total_initial_energy': energy['total_initial_energy'],
+                    'total_consumed_energy': energy['total_consumed_energy'],
+                    'total_residual_energy': energy['total_residual_energy'],
+                    'avg_energy_per_node': energy['avg_energy_per_node']
+                }
+                writer.writerow(row)
+                f.flush()  # Ensure data is written
+                
+                print(f"[{completed}/{total}] ({progress:.1f}%) "
+                      f"{result['protocol']:8} n={result['nodes']:3} run={result['run_number']:2} "
+                      f"PDR={result['pdr']*100:5.1f}% sent={result['sent_pkts']:5} recv={result['recv_pkts']:4} "
+                      f"| ETA: {eta/60:.1f}min")
+            else:
+                failed.append(result)
+                print(f"[{completed}/{total}] ({progress:.1f}%) "
+                      f"{result['protocol']:8} n={result['nodes']:3} run={result['run_number']:2} "
+                      f"FAILED: {result['error'][:40] if result['error'] else 'Unknown'}")
     
     return failed
 
@@ -183,10 +284,6 @@ def main():
     parser.add_argument(
         "--runs", type=int, default=DEFAULT_RUNS,
         help=f"Number of runs per configuration (default: {DEFAULT_RUNS})"
-    )
-    parser.add_argument(
-        "--parallel", type=int, default=0,
-        help="Number of parallel workers (0 = sequential, default: 0)"
     )
     parser.add_argument(
         "--protocols", nargs="+", default=PROTOCOLS,
@@ -201,12 +298,16 @@ def main():
         help=f"Simulation time in seconds (default: {DEFAULT_SIM_TIME})"
     )
     parser.add_argument(
-        "--data-rates", nargs="+", type=int, default=DATA_RATES,
-        help=f"CBR data rates in bps (default: {DATA_RATES})"
+        "--data-rate", type=int, default=10000,
+        help="Data rate in bps (default: 10000)"
     )
     parser.add_argument(
-        "--packet-size", type=int, default=PACKET_SIZE,
-        help=f"Packet size in bytes (default: {PACKET_SIZE})"
+        "--packet-size", type=int, default=40,
+        help="Packet size in bytes (default: 40)"
+    )
+    parser.add_argument(
+        "--range", type=int, default=100,
+        help="Transmission range in meters (default: 100)"
     )
     parser.add_argument(
         "--skip-build", action="store_true",
@@ -229,18 +330,28 @@ def main():
     else:
         csv_file = str(RESULTS_DIR / f"uwsn_results_{timestamp}.csv")
     
-    print("=" * 60)
+    print("=" * 70)
     print("   UWSN Protocol Comparison - Experiment Runner")
-    print("=" * 60)
+    print("=" * 70)
     print(f"Protocols: {args.protocols}")
     print(f"Node counts: {args.nodes}")
-    print(f"CBR Data rates: {args.data_rates} bps")
+    print(f"Data rate: {args.data_rate} bps")
     print(f"Packet size: {args.packet_size} bytes")
+    print(f"Transmission range: {args.range} m")
     print(f"Runs per config: {args.runs}")
     print(f"Simulation time: {args.simtime}s")
     print(f"Output file: {csv_file}")
-    print(f"Parallel workers: {args.parallel if args.parallel > 0 else 'Sequential'}")
-    print("=" * 60)
+    
+    # Calculate total experiments
+    total_experiments = len(args.protocols) * len(args.nodes) * args.runs
+    print(f"\nTotal experiments to run: {total_experiments}")
+    print(f"  = {len(args.protocols)} protocols × {len(args.nodes)} node counts × {args.runs} runs")
+    
+    # Estimate time
+    est_time_per_run = args.simtime / 20  # Rough estimate
+    est_total = total_experiments * est_time_per_run
+    print(f"Estimated time: {est_total/60:.1f} minutes ({est_total/3600:.2f} hours)")
+    print("=" * 70)
     
     # Setup
     if not args.skip_build:
@@ -250,20 +361,11 @@ def main():
     experiments = []
     for protocol in args.protocols:
         for node_count in args.nodes:
-            for data_rate in args.data_rates:
-                for run in range(1, args.runs + 1):
-                    experiments.append((protocol, node_count, run, args.simtime, data_rate))
-    
-    total_experiments = len(experiments)
-    print(f"\nTotal experiments to run: {total_experiments}")
-    
-    # Estimate time
-    est_time_per_run = 60  # seconds (rough estimate)
-    if args.parallel > 0:
-        est_total = (total_experiments * est_time_per_run) / args.parallel
-    else:
-        est_total = total_experiments * est_time_per_run
-    print(f"Estimated time: {est_total/3600:.1f} hours")
+            for run in range(1, args.runs + 1):
+                experiments.append((
+                    protocol, node_count, run, args.simtime,
+                    args.data_rate, args.packet_size, args.range
+                ))
     
     # Confirm
     response = input("\nProceed? [Y/n]: ").strip().lower()
@@ -273,36 +375,31 @@ def main():
     
     # Run experiments
     start_time = time.time()
-    
-    if args.parallel > 0:
-        failed = run_experiments_parallel(experiments, csv_file, args.parallel, args.packet_size)
-    else:
-        failed = run_experiments_sequential(experiments, csv_file, args.packet_size)
-    
+    failed = run_experiments(experiments, csv_file)
     elapsed = time.time() - start_time
     
     # Summary
-    print("\n" + "=" * 60)
+    print("\n" + "=" * 70)
     print("   EXPERIMENT COMPLETE")
-    print("=" * 60)
+    print("=" * 70)
     print(f"Total experiments: {total_experiments}")
     print(f"Successful: {total_experiments - len(failed)}")
     print(f"Failed: {len(failed)}")
-    print(f"Total time: {elapsed/3600:.2f} hours ({elapsed/60:.1f} minutes)")
+    print(f"Total time: {elapsed/60:.1f} minutes ({elapsed/3600:.2f} hours)")
     print(f"Results saved to: {csv_file}")
     
     if failed:
-        print("\nFailed experiments:")
-        for proto, n, run, rate, err in failed[:10]:  # Show first 10
-            print(f"  - {proto}, Nodes={n}, Rate={rate}bps, Run={run}: {err[:50] if err else 'Unknown error'}")
+        print(f"\nFailed experiments ({len(failed)}):")
+        for result in failed[:10]:
+            print(f"  - {result['protocol']}, Nodes={result['nodes']}, "
+                  f"Run={result['run_number']}: {result['error'][:50] if result['error'] else 'Unknown'}")
         if len(failed) > 10:
             print(f"  ... and {len(failed) - 10} more")
     
     print("\nNext steps:")
     print(f"  1. Analyze results: python analyze_results.py {csv_file}")
-    print(f"  2. Generate plots: python plot_results.py {csv_file}")
+    print(f"  2. Generate plots:  python plot_results.py {csv_file}")
 
 
 if __name__ == "__main__":
     main()
-

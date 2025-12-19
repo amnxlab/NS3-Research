@@ -1,299 +1,247 @@
 #!/usr/bin/env python3
 """
-UWSN Protocol Comparison - Statistical Analysis
-================================================
-Analyzes simulation results and generates statistical summaries.
+UWSN Protocol Comparison - Results Analyzer
+============================================
+Calculates statistics from simulation results.
 
 Usage:
-    python analyze_results.py results.csv [--output summary.csv]
+    python analyze_results.py results.csv
 """
 
 import pandas as pd
 import numpy as np
 from scipy import stats
 import argparse
-from pathlib import Path
 import sys
+from pathlib import Path
 
 
-def load_results(csv_path):
-    """Load and validate results CSV."""
-    if not Path(csv_path).exists():
-        print(f"ERROR: File not found: {csv_path}")
+def load_data(csv_file):
+    """Load and validate CSV data."""
+    try:
+        df = pd.read_csv(csv_file)
+        print(f"Loaded {len(df)} rows from {csv_file}")
+        return df
+    except Exception as e:
+        print(f"ERROR: File not found: {csv_file}")
         sys.exit(1)
-    
-    df = pd.read_csv(csv_path)
-    print(f"Loaded {len(df)} records from {csv_path}")
-    print(f"Protocols: {df['protocol'].unique().tolist()}")
-    print(f"Node counts: {sorted(df['nodes'].unique().tolist())}")
-    print(f"Runs per config: {df.groupby(['protocol', 'nodes']).size().iloc[0]}")
-    
-    return df
 
 
-def compute_statistics(df, group_cols, metric_cols):
-    """Compute mean, std, CI for each metric grouped by columns."""
-    results = []
+def calculate_confidence_interval(data, confidence=0.95):
+    """Calculate confidence interval for a data series."""
+    n = len(data)
+    if n < 2:
+        return 0, 0
+    mean = data.mean()
+    se = stats.sem(data)
+    ci = se * stats.t.ppf((1 + confidence) / 2, n - 1)
+    return mean - ci, mean + ci
+
+
+def analyze_by_protocol(df):
+    """Analyze metrics grouped by protocol."""
+    print("\n" + "=" * 70)
+    print("   ANALYSIS BY PROTOCOL")
+    print("=" * 70)
     
-    for name, group in df.groupby(group_cols):
-        if isinstance(name, tuple):
-            row = dict(zip(group_cols, name))
-        else:
-            row = {group_cols[0]: name}
+    metrics = ['pdr', 'avg_energy_per_node', 'network_lifetime_s', 'dead_nodes']
+    
+    for protocol in sorted(df['protocol'].unique()):
+        data = df[df['protocol'] == protocol]
+        n_runs = len(data)
         
-        row['n_samples'] = len(group)
+        print(f"\n{protocol} (n={n_runs} runs)")
+        print("-" * 40)
         
-        for metric in metric_cols:
-            values = group[metric].dropna()
+        for metric in metrics:
+            if metric not in data.columns:
+                continue
+            values = data[metric].dropna()
+            if len(values) == 0:
+                continue
             
-            if len(values) > 0:
-                mean = values.mean()
-                std = values.std()
-                sem = stats.sem(values)
-                
-                # 95% confidence interval
-                if len(values) > 1:
-                    ci = stats.t.interval(
-                        0.95, 
-                        len(values) - 1, 
-                        loc=mean, 
-                        scale=sem
-                    )
-                    ci_lower, ci_upper = ci
-                else:
-                    ci_lower, ci_upper = mean, mean
-                
-                row[f'{metric}_mean'] = mean
-                row[f'{metric}_std'] = std
-                row[f'{metric}_ci_lower'] = ci_lower
-                row[f'{metric}_ci_upper'] = ci_upper
-                row[f'{metric}_min'] = values.min()
-                row[f'{metric}_max'] = values.max()
+            mean = values.mean()
+            std = values.std()
+            ci_low, ci_high = calculate_confidence_interval(values)
+            
+            # Format based on metric type
+            if metric == 'pdr':
+                print(f"  PDR: {mean*100:.2f}% ± {std*100:.2f}% (95% CI: [{ci_low*100:.2f}%, {ci_high*100:.2f}%])")
+            elif metric == 'network_lifetime_s':
+                print(f"  Lifetime: {mean:.1f}s ± {std:.1f}s (95% CI: [{ci_low:.1f}s, {ci_high:.1f}s])")
+            elif metric == 'dead_nodes':
+                print(f"  Dead Nodes: {mean:.1f} ± {std:.1f}")
             else:
-                row[f'{metric}_mean'] = np.nan
-                row[f'{metric}_std'] = np.nan
-                row[f'{metric}_ci_lower'] = np.nan
-                row[f'{metric}_ci_upper'] = np.nan
-                row[f'{metric}_min'] = np.nan
-                row[f'{metric}_max'] = np.nan
-        
-        results.append(row)
+                print(f"  {metric}: {mean:.2f} ± {std:.2f}")
+
+
+def analyze_by_nodes(df):
+    """Analyze metrics grouped by node count."""
+    print("\n" + "=" * 70)
+    print("   ANALYSIS BY NODE COUNT")
+    print("=" * 70)
     
-    return pd.DataFrame(results)
-
-
-def print_summary_table(df, title, metric, group_by='protocol'):
-    """Print a formatted summary table."""
-    print(f"\n{'='*60}")
-    print(f"  {title}")
-    print(f"{'='*60}")
-    
-    mean_col = f'{metric}_mean'
-    std_col = f'{metric}_std'
-    ci_lower = f'{metric}_ci_lower'
-    ci_upper = f'{metric}_ci_upper'
-    
-    if group_by == 'protocol':
-        for _, row in df.iterrows():
-            print(f"{row['protocol']:12s}: "
-                  f"{row[mean_col]:.4f} ± {row[std_col]:.4f} "
-                  f"(95% CI: [{row[ci_lower]:.4f}, {row[ci_upper]:.4f}])")
-    else:
-        # Group by protocol and nodes
-        protocols = df['protocol'].unique()
-        nodes = sorted(df['nodes'].unique())
+    for nodes in sorted(df['nodes'].unique()):
+        print(f"\n{nodes} Nodes")
+        print("-" * 40)
         
-        # Header
-        header = f"{'Nodes':>8}"
-        for proto in protocols:
-            header += f" | {proto:^20}"
-        print(header)
-        print("-" * len(header))
-        
-        # Data rows
-        for n in nodes:
-            row_str = f"{n:>8}"
-            for proto in protocols:
-                row = df[(df['protocol'] == proto) & (df['nodes'] == n)]
-                if len(row) > 0:
-                    row = row.iloc[0]
-                    row_str += f" | {row[mean_col]:8.4f} ± {row[std_col]:6.4f}"
-                else:
-                    row_str += f" | {'N/A':^20}"
-            print(row_str)
+        for protocol in sorted(df['protocol'].unique()):
+            data = df[(df['nodes'] == nodes) & (df['protocol'] == protocol)]
+            if len(data) == 0:
+                continue
+            
+            pdr_mean = data['pdr'].mean() * 100
+            pdr_std = data['pdr'].std() * 100
+            energy_mean = data['avg_energy_per_node'].mean()
+            
+            print(f"  {protocol:10} PDR: {pdr_mean:5.1f}% ± {pdr_std:4.1f}%  |  Energy: {energy_mean:.2f} J/node")
 
 
-def generate_latex_table(df, metrics, output_path):
-    """Generate LaTeX-formatted tables for papers."""
-    latex_content = []
+def compare_protocols(df):
+    """Statistical comparison between protocols."""
+    print("\n" + "=" * 70)
+    print("   PROTOCOL COMPARISON (T-TEST)")
+    print("=" * 70)
+    
+    protocols = sorted(df['protocol'].unique())
+    
+    if len(protocols) < 2:
+        print("Need at least 2 protocols for comparison.")
+        return
+    
+    metrics = ['pdr', 'avg_energy_per_node']
     
     for metric in metrics:
-        mean_col = f'{metric}_mean'
-        std_col = f'{metric}_std'
+        print(f"\n{metric.upper()}")
+        print("-" * 40)
         
-        latex_content.append(f"% Table for {metric}")
-        latex_content.append(r"\begin{table}[htbp]")
-        latex_content.append(r"\centering")
-        latex_content.append(f"\\caption{{{metric.replace('_', ' ').title()} Comparison}}")
-        latex_content.append(r"\begin{tabular}{l" + "c" * len(df['protocol'].unique()) + "}")
-        latex_content.append(r"\toprule")
-        
-        # Header
-        protocols = df['protocol'].unique()
-        header = "Nodes & " + " & ".join(protocols) + r" \\"
-        latex_content.append(header)
-        latex_content.append(r"\midrule")
-        
-        # Data rows
+        for i, p1 in enumerate(protocols):
+            for p2 in protocols[i+1:]:
+                data1 = df[df['protocol'] == p1][metric].dropna()
+                data2 = df[df['protocol'] == p2][metric].dropna()
+                
+                if len(data1) < 2 or len(data2) < 2:
+                    continue
+                
+                t_stat, p_value = stats.ttest_ind(data1, data2)
+                
+                significance = ""
+                if p_value < 0.001:
+                    significance = "***"
+                elif p_value < 0.01:
+                    significance = "**"
+                elif p_value < 0.05:
+                    significance = "*"
+                
+                print(f"  {p1} vs {p2}: t={t_stat:.3f}, p={p_value:.4f} {significance}")
+
+
+def generate_summary_table(df):
+    """Generate summary table for paper."""
+    print("\n" + "=" * 70)
+    print("   SUMMARY TABLE (for paper)")
+    print("=" * 70)
+    
+    summary_data = []
+    
+    for protocol in sorted(df['protocol'].unique()):
         for nodes in sorted(df['nodes'].unique()):
-            row_data = [str(int(nodes))]
-            for proto in protocols:
-                row = df[(df['protocol'] == proto) & (df['nodes'] == nodes)]
-                if len(row) > 0:
-                    row = row.iloc[0]
-                    row_data.append(f"${row[mean_col]:.3f} \\pm {row[std_col]:.3f}$")
-                else:
-                    row_data.append("N/A")
-            latex_content.append(" & ".join(row_data) + r" \\")
-        
-        latex_content.append(r"\bottomrule")
-        latex_content.append(r"\end{tabular}")
-        latex_content.append(r"\end{table}")
-        latex_content.append("")
+            data = df[(df['protocol'] == protocol) & (df['nodes'] == nodes)]
+            if len(data) == 0:
+                continue
+            
+            row = {
+                'Protocol': protocol,
+                'Nodes': nodes,
+                'PDR (%)': f"{data['pdr'].mean()*100:.2f} ± {data['pdr'].std()*100:.2f}",
+                'Energy (J)': f"{data['avg_energy_per_node'].mean():.2f} ± {data['avg_energy_per_node'].std():.2f}",
+                'Lifetime (s)': f"{data['network_lifetime_s'].mean():.1f} ± {data['network_lifetime_s'].std():.1f}",
+                'Sent Pkts': f"{data['sent_pkts'].mean():.0f}",
+                'Recv Pkts': f"{data['recv_pkts'].mean():.0f}"
+            }
+            summary_data.append(row)
     
-    latex_path = output_path.replace('.csv', '_latex.tex')
-    with open(latex_path, 'w') as f:
-        f.write('\n'.join(latex_content))
+    summary_df = pd.DataFrame(summary_data)
+    print("\n" + summary_df.to_string(index=False))
     
-    print(f"LaTeX tables saved to: {latex_path}")
+    return summary_df
 
 
-def analyze_protocol_performance(df):
-    """Perform statistical tests comparing protocols."""
-    print("\n" + "=" * 60)
-    print("  STATISTICAL SIGNIFICANCE TESTS")
-    print("=" * 60)
+def save_summary(df, output_file):
+    """Save summary statistics to CSV."""
+    summary_data = []
     
-    protocols = df['protocol'].unique()
-    metrics = ['pdr', 'avg_delay_ms', 'total_consumed_energy', 'throughput_bps']
+    for protocol in sorted(df['protocol'].unique()):
+        for nodes in sorted(df['nodes'].unique()):
+            data = df[(df['protocol'] == protocol) & (df['nodes'] == nodes)]
+            if len(data) == 0:
+                continue
+            
+            pdr_ci = calculate_confidence_interval(data['pdr'])
+            energy_ci = calculate_confidence_interval(data['avg_energy_per_node'])
+            lifetime_ci = calculate_confidence_interval(data['network_lifetime_s'])
+            
+            row = {
+                'protocol': protocol,
+                'nodes': nodes,
+                'runs': len(data),
+                'pdr_mean': data['pdr'].mean(),
+                'pdr_std': data['pdr'].std(),
+                'pdr_ci_low': pdr_ci[0],
+                'pdr_ci_high': pdr_ci[1],
+                'energy_mean': data['avg_energy_per_node'].mean(),
+                'energy_std': data['avg_energy_per_node'].std(),
+                'energy_ci_low': energy_ci[0],
+                'energy_ci_high': energy_ci[1],
+                'lifetime_mean': data['network_lifetime_s'].mean(),
+                'lifetime_std': data['network_lifetime_s'].std(),
+                'lifetime_ci_low': lifetime_ci[0],
+                'lifetime_ci_high': lifetime_ci[1],
+                'dead_nodes_mean': data['dead_nodes'].mean(),
+                'sent_pkts_mean': data['sent_pkts'].mean(),
+                'recv_pkts_mean': data['recv_pkts'].mean()
+            }
+            summary_data.append(row)
     
-    for metric in metrics:
-        if metric not in df.columns:
-            continue
-            
-        print(f"\n--- {metric.upper()} ---")
-        
-        # Kruskal-Wallis test (non-parametric)
-        groups = [df[df['protocol'] == p][metric].dropna() for p in protocols]
-        groups = [g for g in groups if len(g) > 0]
-        
-        if len(groups) >= 2:
-            stat, p_value = stats.kruskal(*groups)
-            print(f"Kruskal-Wallis test: H={stat:.4f}, p={p_value:.6f}")
-            
-            if p_value < 0.05:
-                print("  -> Significant difference between protocols (p < 0.05)")
-                
-                # Pairwise Mann-Whitney U tests
-                print("  Pairwise comparisons (Mann-Whitney U):")
-                for i, p1 in enumerate(protocols):
-                    for p2 in protocols[i+1:]:
-                        g1 = df[df['protocol'] == p1][metric].dropna()
-                        g2 = df[df['protocol'] == p2][metric].dropna()
-                        if len(g1) > 0 and len(g2) > 0:
-                            stat, p = stats.mannwhitneyu(g1, g2, alternative='two-sided')
-                            sig = "*" if p < 0.05 else ""
-                            print(f"    {p1} vs {p2}: U={stat:.2f}, p={p:.6f} {sig}")
-            else:
-                print("  -> No significant difference (p >= 0.05)")
+    summary_df = pd.DataFrame(summary_data)
+    summary_df.to_csv(output_file, index=False)
+    print(f"\nSummary saved to: {output_file}")
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="UWSN Protocol Comparison - Statistical Analysis"
+        description="UWSN Protocol Comparison - Results Analyzer"
     )
     parser.add_argument(
-        "input", type=str,
-        help="Input CSV file with simulation results"
+        "csv_file",
+        help="Path to the results CSV file"
     )
     parser.add_argument(
-        "--output", type=str, default=None,
-        help="Output CSV file for summary statistics"
-    )
-    parser.add_argument(
-        "--latex", action="store_true",
-        help="Generate LaTeX tables"
+        "--output", "-o",
+        default=None,
+        help="Output file for summary (default: input_summary.csv)"
     )
     
     args = parser.parse_args()
     
     # Load data
-    df = load_results(args.input)
+    df = load_data(args.csv_file)
     
-    # Define metrics to analyze
-    metrics = [
-        'pdr',
-        'throughput_bps',
-        'avg_delay_ms',
-        'network_lifetime_s',
-        'total_consumed_energy',
-        'avg_energy_per_node',
-        'energy_efficiency_pkts_per_j'
-    ]
+    # Run analyses
+    analyze_by_protocol(df)
+    analyze_by_nodes(df)
+    compare_protocols(df)
+    summary = generate_summary_table(df)
     
-    # Filter to available metrics
-    available_metrics = [m for m in metrics if m in df.columns]
-    
-    print(f"\nAnalyzing metrics: {available_metrics}")
-    
-    # Compute statistics by protocol
-    print("\n" + "=" * 60)
-    print("  SUMMARY BY PROTOCOL")
-    print("=" * 60)
-    
-    summary_protocol = compute_statistics(df, ['protocol'], available_metrics)
-    print(summary_protocol.to_string())
-    
-    # Compute statistics by protocol and nodes
-    print("\n" + "=" * 60)
-    print("  SUMMARY BY PROTOCOL AND NODE COUNT")
-    print("=" * 60)
-    
-    summary_full = compute_statistics(df, ['protocol', 'nodes'], available_metrics)
-    
-    # Print formatted tables for key metrics
-    for metric in ['pdr', 'avg_delay_ms', 'total_consumed_energy']:
-        if metric in available_metrics:
-            print_summary_table(
-                summary_full, 
-                f"{metric.upper().replace('_', ' ')}", 
-                metric,
-                group_by='protocol_nodes'
-            )
-    
-    # Statistical significance tests
-    analyze_protocol_performance(df)
-    
-    # Save output
+    # Save summary
     if args.output:
-        output_path = args.output
+        output_file = args.output
     else:
-        output_path = args.input.replace('.csv', '_summary.csv')
+        input_path = Path(args.csv_file)
+        output_file = str(input_path.parent / f"{input_path.stem}_summary.csv")
     
-    summary_full.to_csv(output_path, index=False)
-    print(f"\nSummary statistics saved to: {output_path}")
-    
-    # Generate LaTeX tables if requested
-    if args.latex:
-        generate_latex_table(summary_full, available_metrics[:4], output_path)
-    
-    print("\n" + "=" * 60)
-    print("  ANALYSIS COMPLETE")
-    print("=" * 60)
-    print(f"\nNext step: Generate visualizations")
-    print(f"  python plot_results.py {args.input}")
+    save_summary(df, output_file)
 
 
 if __name__ == "__main__":
     main()
-
