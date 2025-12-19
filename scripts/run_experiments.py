@@ -73,13 +73,12 @@ def setup_simulation():
 
 def parse_simulation_output(output):
     """
-    Parse simulation stdout to extract metrics from Aqua-Sim PrintCounters.
+    Parse simulation stdout to extract metrics.
     
-    Expected format from PrintCounters:
-        Sent Pkts: 1234
-        Sent Data: 5678
-        Recv Pkts: 900
-        ...
+    Expected format:
+        Sender Sent: 123
+        Sink Received: 100
+        PDR: 81.3%
     """
     metrics = {
         'sent_pkts': 0,
@@ -87,19 +86,21 @@ def parse_simulation_output(output):
         'pdr': 0.0
     }
     
-    # Parse Aqua-Sim channel counter output
-    # Look for patterns like "Sent Pkts: 1234" or "SendUp Pkts: 567"
-    sent_match = re.search(r'Sent\s+Pkts[:\s]+(\d+)', output, re.IGNORECASE)
-    recv_match = re.search(r'(?:Recv|SendUp)\s+Pkts[:\s]+(\d+)', output, re.IGNORECASE)
-    
+    # Parse sender sent
+    sent_match = re.search(r'Sender Sent:\s*(\d+)', output)
     if sent_match:
         metrics['sent_pkts'] = int(sent_match.group(1))
     
+    # Parse sink received
+    recv_match = re.search(r'Sink Received:\s*(\d+)', output)
     if recv_match:
         metrics['recv_pkts'] = int(recv_match.group(1))
     
-    # Calculate PDR
-    if metrics['sent_pkts'] > 0:
+    # Parse PDR directly
+    pdr_match = re.search(r'PDR:\s*([\d.]+)%', output)
+    if pdr_match:
+        metrics['pdr'] = float(pdr_match.group(1)) / 100.0
+    elif metrics['sent_pkts'] > 0:
         metrics['pdr'] = metrics['recv_pkts'] / metrics['sent_pkts']
     
     return metrics
@@ -107,7 +108,9 @@ def parse_simulation_output(output):
 
 def run_single_experiment(params):
     """Run a single experiment with given parameters."""
-    protocol, nodes, run_number, sim_time, data_rate, packet_size, range_m = params
+    protocol, nodes, run_number, sim_time, data_rate, packet_size, range_m, use_cbr = params
+    
+    cbr_flag = "--cbr=true" if use_cbr else "--cbr=false"
     
     cmd = [
         "./ns3", "run",
@@ -119,6 +122,7 @@ def run_single_experiment(params):
         f"--dataRate={data_rate} "
         f"--packetSize={packet_size} "
         f"--range={range_m} "
+        f"{cbr_flag} "
         f"--csvFile=/dev/null"  # Don't write individual CSVs
     ]
     
@@ -131,9 +135,12 @@ def run_single_experiment(params):
             timeout=3600  # 1 hour timeout per run
         )
         
+        # Combine stdout and stderr (ns3 may output to either)
+        combined_output = result.stdout + "\n" + result.stderr
+        
         if result.returncode == 0:
             # Parse the output to get PDR and other metrics
-            metrics = parse_simulation_output(result.stdout)
+            metrics = parse_simulation_output(combined_output)
             return {
                 'success': True,
                 'protocol': protocol,
@@ -146,7 +153,7 @@ def run_single_experiment(params):
                 'sent_pkts': metrics['sent_pkts'],
                 'recv_pkts': metrics['recv_pkts'],
                 'pdr': metrics['pdr'],
-                'stdout': result.stdout,
+                'stdout': combined_output,
                 'error': None
             }
         else:
@@ -205,12 +212,13 @@ def parse_energy_from_output(output):
     return energy
 
 
-def run_experiments(experiments, csv_file):
+def run_experiments(experiments, csv_file, debug=False):
     """Run all experiments and save results to CSV."""
     total = len(experiments)
     completed = 0
     failed = []
     results = []
+    first_run = True
     
     print(f"\nRunning {total} experiments...")
     print("=" * 70)
@@ -233,6 +241,23 @@ def run_experiments(experiments, csv_file):
         for params in experiments:
             result = run_single_experiment(params)
             completed += 1
+            
+            # Debug: print first experiment output
+            if debug and first_run and result['success']:
+                first_run = False
+                print("\n" + "=" * 70)
+                print("DEBUG: First experiment output (for parsing verification)")
+                print("=" * 70)
+                # Show relevant parts of output
+                output = result.get('stdout', '')
+                for line in output.split('\n'):
+                    if any(x in line for x in ['Sent Pkts', 'SendUp Pkts', 'Recv Pkts', 
+                                                'NetworkTotal', 'Channel Counters',
+                                                'Network Lifetime', 'Dead Nodes',
+                                                'Total Initial Energy', 'Total Consumed']):
+                        print(f"  {line}")
+                print(f"\nParsed: sent={result['sent_pkts']}, recv={result['recv_pkts']}, pdr={result['pdr']:.4f}")
+                print("=" * 70 + "\n")
             
             progress = (completed / total) * 100
             elapsed = time.time() - start_time
@@ -310,12 +335,20 @@ def main():
         help="Transmission range in meters (default: 100)"
     )
     parser.add_argument(
+        "--cbr", action="store_true",
+        help="Use CBR (constant bit rate) traffic instead of OnOff"
+    )
+    parser.add_argument(
         "--skip-build", action="store_true",
         help="Skip copying and building (use existing build)"
     )
     parser.add_argument(
         "--output", type=str, default=None,
         help="Output CSV file path"
+    )
+    parser.add_argument(
+        "--debug", action="store_true",
+        help="Print first experiment output for debugging"
     )
     
     args = parser.parse_args()
@@ -335,6 +368,7 @@ def main():
     print("=" * 70)
     print(f"Protocols: {args.protocols}")
     print(f"Node counts: {args.nodes}")
+    print(f"Traffic mode: {'CBR' if args.cbr else 'OnOff'}")
     print(f"Data rate: {args.data_rate} bps")
     print(f"Packet size: {args.packet_size} bytes")
     print(f"Transmission range: {args.range} m")
@@ -364,7 +398,7 @@ def main():
             for run in range(1, args.runs + 1):
                 experiments.append((
                     protocol, node_count, run, args.simtime,
-                    args.data_rate, args.packet_size, args.range
+                    args.data_rate, args.packet_size, args.range, args.cbr
                 ))
     
     # Confirm
@@ -375,7 +409,7 @@ def main():
     
     # Run experiments
     start_time = time.time()
-    failed = run_experiments(experiments, csv_file)
+    failed = run_experiments(experiments, csv_file, debug=args.debug)
     elapsed = time.time() - start_time
     
     # Summary
