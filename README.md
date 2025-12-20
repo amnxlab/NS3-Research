@@ -259,18 +259,21 @@ Avg Energy/Node: 3.97 J
 
 ## Graphs Generated
 
-| Graph | Description |
-|-------|-------------|
-| `pdr_bar.png` | PDR comparison by protocol |
-| `pdr_line.png` | PDR vs node count |
-| `pdr_boxplot.png` | PDR distribution |
-| `energy_line.png` | Energy vs node count |
-| `energy_boxplot.png` | Energy distribution |
-| `network_lifetime.png` | Lifetime comparison |
-| `dead_nodes.png` | Node failures |
-| `total_energy.png` | Total energy consumption |
-| `sent_vs_received.png` | Packet delivery scatter |
-| `summary_dashboard.png` | 4-panel summary |
+**5 Meaningful, Publication-Quality Graphs:**
+
+| # | Graph | Description |
+|---|-------|-------------|
+| 1 | `1_protocol_comparison.png` | **Most Important** - PDR, Energy, Throughput side-by-side |
+| 2 | `2_scalability_analysis.png` | PDR and Energy vs Network Size |
+| 3 | `3_reliability_analysis.png` | Consistency box plots (variance analysis) |
+| 4 | `4_energy_pdr_tradeoff.png` | Scatter plot showing efficiency trade-offs |
+| 5 | `5_comprehensive_summary.png` | Complete 2×2 dashboard with performance table |
+
+**Why only 5 graphs?**
+- Focused on meaningful insights
+- No redundant metrics
+- Publication-ready quality
+- Easy to understand
 
 ---
 
