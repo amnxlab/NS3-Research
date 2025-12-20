@@ -14,7 +14,8 @@ from scipy import stats
 import argparse
 import sys
 from pathlib import Path
-
+# update this 
+# import my actuall path
 
 def load_data(csv_file):
     """Load and validate CSV data."""
