@@ -24,13 +24,52 @@ import csv
 from pathlib import Path
 from datetime import datetime
 
-# Configuration - Updated paths after reorganization
-NS3_PATH = Path.home() / "ns3" / "ns-allinone-3.42" / "ns-3.42"
+# Auto-detect paths
+def find_ns3_installation():
+    """Find ns-3 installation by looking for common locations."""
+    script_dir = Path(__file__).resolve().parent
+    research_dir = script_dir.parent
+    
+    # Common ns-3 locations to check
+    possible_paths = [
+        Path.home() / "ns3" / "ns-allinone-3.42" / "ns-3.42",
+        Path.home() / "ns-allinone-3.42" / "ns-3.42",
+        Path.home() / "ns3" / "ns-3.42",
+        Path("/usr/local/ns3/ns-3.42"),
+        research_dir.parent / "ns-allinone-3.42" / "ns-3.42",
+    ]
+    
+    for path in possible_paths:
+        if path.exists() and (path / "ns3").exists():
+            return path
+    
+    # If not found, ask user
+    print("ERROR: Could not auto-detect ns-3 installation.")
+    print("Please enter the full path to your ns-3.42 directory")
+    print("(e.g., /home/username/ns3/ns-allinone-3.42/ns-3.42):")
+    user_path = input("> ").strip()
+    
+    ns3_path = Path(user_path)
+    if ns3_path.exists() and (ns3_path / "ns3").exists():
+        return ns3_path
+    else:
+        print(f"ERROR: Invalid ns-3 path: {user_path}")
+        sys.exit(1)
+
+# Configuration - Dynamic path detection
+SCRIPT_DIR = Path(__file__).resolve().parent
+RESEARCH_DIR = SCRIPT_DIR.parent
+NS3_PATH = find_ns3_installation()
 SCRATCH_PATH = NS3_PATH / "scratch"
-RESEARCH_DIR = Path.home() / "NS3-Research"
 RESULTS_DIR = RESEARCH_DIR / "results"
 SRC_DIR = RESEARCH_DIR / "src"
 PROGRAM_NAME = "uwsn-research"
+
+print(f"Using paths:")
+print(f"  Research Dir: {RESEARCH_DIR}")
+print(f"  NS-3 Path: {NS3_PATH}")
+print(f"  Source Dir: {SRC_DIR}")
+print(f"  Results Dir: {RESULTS_DIR}\n")
 
 # Experiment parameters
 PROTOCOLS = ["VBF", "DBR", "flooding"]
