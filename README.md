@@ -77,13 +77,16 @@ python3 -m pip install -r requirements.txt
 
 ### Step 2: Verify ns-3 Installation
 
-The scripts will **auto-detect** your ns-3 installation (supports versions **3.40-3.49**).
+The scripts will **automatically search your home directory** for ns-3 installations (supports versions **3.40-3.49**).
 
-Search locations:
-- `~/ns3/ns-allinone-3.4x/ns-3.4x`
-- `~/ns-allinone-3.4x/ns-3.4x`
-- `~/ns3/ns-3.4x`
-- `/usr/local/ns3/ns-3.4x`
+**Search process**:
+1. Scans all directories in your home folder
+2. Checks common patterns:
+   - `~/ns3/ns-allinone-3.4x/ns-3.4x`
+   - `~/ns-allinone-3.4x/ns-3.4x`
+   - `~/workspace/ns-allinone-3.4x/ns-3.4x`
+   - Any subdirectory containing ns-3.4x
+3. Also checks system directories: `/usr/local`, `/opt`
 
 To test detection:
 ```bash
@@ -93,7 +96,11 @@ python3 run_experiments.py --help
 
 You should see:
 ```
+Searching for ns-3.4x installation in home directory...
+  Found: /home/username/ns3/ns-allinone-3.42/ns-3.42
+
 ✓ Auto-detected ns-3 version: ns-3.42
+  Location: /home/username/ns3/ns-allinone-3.42/ns-3.42
 Using paths:
   Research Dir: /home/username/NS3-Research
   NS-3 Path: /home/username/ns3/ns-allinone-3.42/ns-3.42

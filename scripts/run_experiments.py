@@ -26,7 +26,7 @@ from datetime import datetime
 
 # Auto-detect paths
 def find_ns3_installation():
-    """Find ns-3 installation (version 3.40-3.49) by scanning common locations."""
+    """Find ns-3 installation (version 3.40-3.49) by scanning user home directory."""
     script_dir = Path(__file__).resolve().parent
     research_dir = script_dir.parent
     
@@ -34,61 +34,113 @@ def find_ns3_installation():
     ns3_version_pattern = re.compile(r'ns-3\.4\d$')
     ns3_allinone_pattern = re.compile(r'ns-allinone-3\.4\d$')
     
-    # Base directories to search
-    search_bases = [
-        Path.home() / "ns3",
-        Path.home(),
-        Path("/usr/local/ns3"),
-        Path("/usr/local"),
-        research_dir.parent,
-    ]
-    
     found_installations = []
     
-    # Search for ns-3.4x installations
-    for base in search_bases:
-        if not base.exists():
-            continue
-        
-        try:
-            # Check immediate subdirectories
-            for item in base.iterdir():
-                if not item.is_dir():
-                    continue
-                
-                # Pattern 1: ns-allinone-3.4x/ns-3.4x
+    print("Searching for ns-3.4x installation in home directory...")
+    
+    # Search home directory thoroughly
+    home_dir = Path.home()
+    try:
+        # Scan all directories in home (one level deep)
+        for item in home_dir.iterdir():
+            if not item.is_dir() or item.name.startswith('.'):
+                continue
+            
+            try:
+                # Pattern 1: Check if this is ns-allinone-3.4x
                 if ns3_allinone_pattern.match(item.name):
                     for subitem in item.iterdir():
                         if subitem.is_dir() and ns3_version_pattern.match(subitem.name):
                             if (subitem / "ns3").exists():
                                 found_installations.append(subitem)
+                                print(f"  Found: {subitem}")
                                 break
                 
-                # Pattern 2: direct ns-3.4x directory
+                # Pattern 2: Check if this is direct ns-3.4x directory
                 elif ns3_version_pattern.match(item.name):
                     if (item / "ns3").exists():
                         found_installations.append(item)
+                        print(f"  Found: {item}")
+                
+                # Pattern 3: Check subdirectories (e.g., ~/ns3/ns-allinone-3.4x/ns-3.4x)
+                else:
+                    for subitem in item.iterdir():
+                        if not subitem.is_dir():
+                            continue
+                        
+                        # Check for ns-allinone-3.4x in subdirectory
+                        if ns3_allinone_pattern.match(subitem.name):
+                            for subsubitem in subitem.iterdir():
+                                if subsubitem.is_dir() and ns3_version_pattern.match(subsubitem.name):
+                                    if (subsubitem / "ns3").exists():
+                                        found_installations.append(subsubitem)
+                                        print(f"  Found: {subsubitem}")
+                                        break
+                        
+                        # Check for direct ns-3.4x in subdirectory
+                        elif ns3_version_pattern.match(subitem.name):
+                            if (subitem / "ns3").exists():
+                                found_installations.append(subitem)
+                                print(f"  Found: {subitem}")
+            
+            except (PermissionError, OSError):
+                continue
+    
+    except (PermissionError, OSError):
+        print("  Warning: Limited access to home directory")
+    
+    # Also check common system locations
+    system_paths = [
+        Path("/usr/local/ns3"),
+        Path("/usr/local"),
+        Path("/opt"),
+    ]
+    
+    for base in system_paths:
+        if not base.exists():
+            continue
+        
+        try:
+            for item in base.iterdir():
+                if not item.is_dir():
+                    continue
+                
+                if ns3_allinone_pattern.match(item.name):
+                    for subitem in item.iterdir():
+                        if subitem.is_dir() and ns3_version_pattern.match(subitem.name):
+                            if (subitem / "ns3").exists():
+                                found_installations.append(subitem)
+                                print(f"  Found: {subitem}")
+                                break
+                
+                elif ns3_version_pattern.match(item.name):
+                    if (item / "ns3").exists():
+                        found_installations.append(item)
+                        print(f"  Found: {item}")
         
         except (PermissionError, OSError):
             continue
     
     # Return the first found installation (prefer newer versions)
     if found_installations:
-        # Sort by version number (newest first)
-        found_installations.sort(key=lambda p: p.name, reverse=True)
-        detected = found_installations[0]
-        print(f"✓ Auto-detected ns-3 version: {detected.name}")
+        # Remove duplicates and sort by version number (newest first)
+        unique_installations = list(set(found_installations))
+        unique_installations.sort(key=lambda p: p.name, reverse=True)
+        detected = unique_installations[0]
+        print(f"\n✓ Auto-detected ns-3 version: {detected.name}")
+        print(f"  Location: {detected}")
         return detected
     
     # If not found, ask user
-    print("ERROR: Could not auto-detect ns-3 installation (versions 3.40-3.49).")
-    print(f"Searched in: {', '.join(str(b) for b in search_bases if b.exists())}")
+    print("\nERROR: Could not auto-detect ns-3 installation (versions 3.40-3.49).")
+    print(f"Searched in: {home_dir} and system directories")
     print("\nPlease enter the full path to your ns-3.4x directory")
     print("(e.g., /home/username/ns3/ns-allinone-3.42/ns-3.42):")
     user_path = input("> ").strip()
     
     ns3_path = Path(user_path)
     if ns3_path.exists() and (ns3_path / "ns3").exists():
+        print(f"✓ Using: {ns3_path}")
         return ns3_path
     else:
         print(f"ERROR: Invalid ns-3 path: {user_path}")
