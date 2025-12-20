@@ -277,21 +277,21 @@ Avg Energy/Node: 3.97 J
 ## Topology
 
 ```
-Area: 200m × 200m × 150m (depth)
+Area: 400m × 400m × 400m (depth)
 Range: 100m
 
      Surface (z=0)
      ┌─────────────────────┐
-     │         ⬤ Sink      │  (100, 100, 0)
+     │         ⬤ Sink      │  (200, 200, 0)
      │      (center)       │
      │                     │
      │    ○ ○ ○ ○ ○ ○     │  Relay nodes
      │   ○ ○ ○ ○ ○ ○ ○    │  (random positions)
      │    ○ ○ ○ ○ ○ ○     │
      │                     │
-     │      ◆ Sender       │  (50, 50, 120)
+     │      ◆ Sender       │  (100, 100, 300)
      └─────────────────────┘
-     Bottom (z=150)
+     Bottom (z=400)
 ```
 
 ---

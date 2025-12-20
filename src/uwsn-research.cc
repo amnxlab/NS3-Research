@@ -35,18 +35,18 @@ main(int argc, char *argv[])
   double txPowerW = 2.0;
   double rxPowerW = 0.1;
   double idlePowerW = 0.001;
-  // Smaller area for denser node deployment (better connectivity)
-  double areaX = 200.0;
-  double areaY = 200.0;
+  // Area dimensions
+  double areaX = 400.0;
+  double areaY = 400.0;
   double minDepth = 0.0;
-  double maxDepth = 150.0;
+  double maxDepth = 400.0;
   // Sink at surface center, sender at bottom
-  double sinkX = 100.0;
-  double sinkY = 100.0;
+  double sinkX = 200.0;
+  double sinkY = 200.0;
   double sinkZ = 0.0;
-  double senderX = 50.0;
-  double senderY = 50.0;
-  double senderZ = 120.0;
+  double senderX = 100.0;
+  double senderY = 100.0;
+  double senderZ = 300.0;
   uint32_t runNumber = 1;
   bool useCBR = false;  // CBR mode option
 
