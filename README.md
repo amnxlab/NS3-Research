@@ -77,11 +77,13 @@ python3 -m pip install -r requirements.txt
 
 ### Step 2: Verify ns-3 Installation
 
-The scripts will **auto-detect** your ns-3 installation in these locations:
-- `~/ns3/ns-allinone-3.42/ns-3.42`
-- `~/ns-allinone-3.42/ns-3.42`
-- `~/ns3/ns-3.42`
-- `/usr/local/ns3/ns-3.42`
+The scripts will **auto-detect** your ns-3 installation (supports versions **3.40-3.49**).
+
+Search locations:
+- `~/ns3/ns-allinone-3.4x/ns-3.4x`
+- `~/ns-allinone-3.4x/ns-3.4x`
+- `~/ns3/ns-3.4x`
+- `/usr/local/ns3/ns-3.4x`
 
 To test detection:
 ```bash
@@ -91,6 +93,7 @@ python3 run_experiments.py --help
 
 You should see:
 ```
+✓ Auto-detected ns-3 version: ns-3.42
 Using paths:
   Research Dir: /home/username/NS3-Research
   NS-3 Path: /home/username/ns3/ns-allinone-3.42/ns-3.42
@@ -312,7 +315,7 @@ Range: 100m
 ## Requirements
 
 ### System
-- ns-3.42 (any location - auto-detected)
+- ns-3 versions **3.40 through 3.49** (auto-detected)
 - Aqua-Sim-NG module (in ns-3 contrib folder)
 - Python 3.8+
 
@@ -323,6 +326,8 @@ Install with: `python3 -m pip install -r scripts/requirements.txt`
 - seaborn
 - scipy
 
+**Note**: The framework automatically detects any ns-3.4x version (3.40-3.49) installed on your system.
+
 ---
 
 ## Troubleshooting
@@ -331,23 +336,27 @@ Install with: `python3 -m pip install -r scripts/requirements.txt`
 
 If you see:
 ```
-ERROR: Could not auto-detect ns-3 installation.
-Please enter the full path to your ns-3.42 directory
+ERROR: Could not auto-detect ns-3 installation (versions 3.40-3.49).
+Please enter the full path to your ns-3.4x directory
 ```
 
-Enter your ns-3 path when prompted:
+**Solution 1**: Enter your ns-3 path when prompted:
 ```
 > /home/myuser/workspace/ns-allinone-3.42/ns-3.42
 ```
 
-**Manual configuration**: Edit `scripts/run_experiments.py` line ~28:
+**Solution 2**: Manual configuration in `scripts/run_experiments.py`:
 ```python
-possible_paths = [
-    Path("/your/custom/path/ns-3.42"),  # Add this
-    Path.home() / "ns3" / "ns-allinone-3.42" / "ns-3.42",
+# Add your custom path to search_bases list (around line 38)
+search_bases = [
+    Path("/your/custom/path"),  # Add this line
+    Path.home() / "ns3",
+    Path.home(),
     # ... rest of paths
 ]
 ```
+
+**Supported versions**: ns-3.40, ns-3.41, ns-3.42, ns-3.43, ... ns-3.49
 
 ### Python Package Errors
 
