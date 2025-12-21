@@ -35,9 +35,12 @@ static AquaSimAddress g_sinkAddress;
 
 // Callback: Fired when sink's routing layer sends packet up
 // We check if destination matches sink address
-void SinkPacketReceivedCallback(Ptr<Packet> packet) {
+// NOTE: Must use Ptr<const Packet> to match trace signature
+void SinkPacketReceivedCallback(Ptr<const Packet> packet) {
+  // Create a copy to read header (PeekHeader requires non-const)
+  Ptr<Packet> pktCopy = packet->Copy();
   AquaSimHeader ash;
-  packet->PeekHeader(ash);
+  pktCopy->PeekHeader(ash);
   
   // Only count if packet DESTINATION == sink address
   if (ash.GetDAddr() == g_sinkAddress) {
