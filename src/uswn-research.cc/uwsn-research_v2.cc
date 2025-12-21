@@ -233,6 +233,20 @@ main(int argc, char *argv[])
   // ========== NO CHANGES - Original output and energy calculation ==========
   asHelper.GetChannel()->PrintCounters();
 
+  // ==== EDITED: Calculate PDR from sender/sink devices ====
+  Ptr<AquaSimNetDevice> senderDev = DynamicCast<AquaSimNetDevice>(senderCon.Get(0)->GetDevice(0));
+  Ptr<AquaSimNetDevice> sinkDev = DynamicCast<AquaSimNetDevice>(sinksCon.Get(0)->GetDevice(0));
+  
+  int senderSentPkts = senderDev->TotalSentPkts();
+  int sinkRecvPkts = sinkDev->GetRouting()->SendUpPktCount();
+  double pdr = (senderSentPkts > 0) ? (double)sinkRecvPkts / senderSentPkts : 0.0;
+  
+  std::cout << "\n--- End-to-End ---\n";
+  std::cout << "Sender Sent: " << senderSentPkts << "\n";
+  std::cout << "Sink Received: " << sinkRecvPkts << "\n";
+  std::cout << "PDR: " << (pdr * 100.0) << "%\n";
+  // ==== END OF EDIT ====
+
   double totalInitialEnergy = 0.0;
   double totalResidualEnergy = 0.0;
   for (uint32_t i = 0; i < devices.GetN(); i++) {
@@ -258,6 +272,7 @@ main(int argc, char *argv[])
     csv << "run,protocol,nodes,sinks,simStop,"
         << "range,minDepth,maxDepth,vbfWidth,mobility,"  // 5 parameters added
         << "areaX,areaY,"
+        << "sender_sent,sink_recv,pdr,"  // PDR metrics added
         << "initial_energy_per_node,tx_power,rx_power,idle_power,"
         << "total_initial_energy,total_consumed_energy,total_residual_energy\n";
   }
@@ -273,6 +288,9 @@ main(int argc, char *argv[])
       << mobilityModel << ","  // Parameter 5
       << areaX << ","
       << areaY << ","
+      << senderSentPkts << ","  // Packets sent
+      << sinkRecvPkts << ","    // Packets received
+      << pdr << ","             // PDR (0.0 to 1.0)
       << initialEnergyJ << ","
       << txPowerW << ","
       << rxPowerW << ","
@@ -284,10 +302,10 @@ main(int argc, char *argv[])
   // ==== END OF EDIT ====
 
   std::cout << "\nResults appended to: " << csvFile << std::endl;
+  std::cout << "PDR: " << (pdr * 100.0) << "%" << std::endl;
   std::cout << "Total Initial Energy: " << totalInitialEnergy << " J" << std::endl;
   std::cout << "Total Consumed Energy: " << totalConsumedEnergy << " J" << std::endl;
   std::cout << "Total Residual Energy: " << totalResidualEnergy << " J" << std::endl;
-  std::cout << "➡️ Use 'Sent Pkts' and 'SendUp Pkts' from output to compute PDR." << std::endl;
   std::cout << "fin.\n";
 
   return 0;
