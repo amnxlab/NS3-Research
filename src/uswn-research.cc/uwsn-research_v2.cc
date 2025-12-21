@@ -236,6 +236,7 @@ main(int argc, char *argv[])
   // ==== EDITED: Calculate PDR from sender/sink devices ====
   // METHOD: Use TotalSentPkts() for sender and SendUpPktCount() for sink
   // This matches the Aqua-Sim-NG PrintCounters() approach
+  
   Ptr<AquaSimNetDevice> senderDev = DynamicCast<AquaSimNetDevice>(senderCon.Get(0)->GetDevice(0));
   Ptr<AquaSimNetDevice> sinkDev = DynamicCast<AquaSimNetDevice>(sinksCon.Get(0)->GetDevice(0));
   
