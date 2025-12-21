@@ -38,13 +38,374 @@ python3 run_all.py \
 
 ## The 5 Configurable Parameters
 
-| # | Parameter | Command Line | Default | Description |
-|---|-----------|--------------|---------|-------------|
-| 1 | **Nodes** | `--nodes` | 100 | Number of relay nodes |
-| 2 | **Range** | `--range` | 100m | Communication range |
-| 3 | **Depth** | `--min-depth`, `--max-depth` | 0-400m | Vertical placement range |
-| 4 | **VBF Width** | `--vbf-width` | 100m | Routing pipe radius (VBF only) |
-| 5 | **Mobility** | `--mobility` | static | static or random (horizontal X,Y only) |
+### Overview
+
+Version 2 allows you to control **5 critical parameters** from the command line without modifying any code. These parameters affect network topology, protocol behavior, and node mobility.
+
+---
+
+### Parameter 1: Number of Nodes (`--nodes`)
+
+**What it controls:** The number of intermediate relay nodes in the network (between sender and sink)
+
+**Default:** `100`
+
+**Range:** 10 - 500 (recommended for UWSN)
+
+**How it works:**
+- Creates relay nodes randomly distributed in the 3D underwater space
+- More nodes = denser network = more routing paths
+- Fewer nodes = sparse network = may cause connectivity issues
+
+**Impact on protocols:**
+- **VBF**: More nodes inside the routing pipe → more forwarders → higher reliability
+- **DBR**: More nodes at different depths → better depth-based routing options
+- **Flooding**: More nodes → more broadcast duplicates → higher overhead
+
+**Example:**
+```bash
+python3 run_all.py --nodes 50 100 150 --protocols VBF DBR --runs 10
+```
+
+**Use cases:**
+- Scalability studies: Test how protocols perform as network size grows
+- Density analysis: Compare sparse vs dense network performance
+- Connectivity studies: Find minimum nodes needed for good PDR
+
+---
+
+### Parameter 2: Communication Range (`--range`)
+
+**What it controls:** The transmission range of each node's radio (in meters)
+
+**Default:** `100` meters
+
+**Range:** 50 - 300 meters (realistic for underwater acoustic communication)
+
+**How it works:**
+- Sets the maximum distance a node can communicate
+- Applied to **all nodes** (sender, relay, sink)
+- Determines neighbor connectivity in the network
+
+**Implementation:**
+```cpp
+// Line 200 in uwsn-research_v2.cc
+dev->GetPhy()->SetTransRange(range);  // Applied to each device
+```
+
+**Impact on protocols:**
+- **VBF**: 
+  - Uses range for delay calculation: `delay = (p/width) + ((range - d*cos_theta)/range)`
+  - Larger range → more nodes can participate in forwarding
+  - Affects which nodes are "close enough" to the routing pipeline
+  
+- **DBR**: 
+  - Uses range to determine reachable neighbors
+  - Larger range → more depth-based routing options
+  - Critical for multi-hop depth-based forwarding
+  
+- **Flooding**: 
+  - Larger range → more neighbors receive broadcast
+  - Directly affects network coverage
+
+**Example:**
+```bash
+# Test range impact
+python3 run_all.py --range 80 --protocols VBF --runs 10   # Short range
+python3 run_all.py --range 150 --protocols VBF --runs 10  # Long range
+```
+
+**Use cases:**
+- Energy-range trade-off studies
+- Optimal range determination
+- Coverage analysis
+
+**Note:** Larger range = more energy per transmission (not modeled in current version)
+
+---
+
+### Parameter 3: Depth Variation (`--min-depth`, `--max-depth`)
+
+**What it controls:** The vertical (Z-axis) range where relay nodes are randomly placed
+
+**Default:** 
+- `--min-depth`: `0.0` meters (surface)
+- `--max-depth`: `400.0` meters (400m deep)
+
+**Range:** 0 - 1000 meters (typical underwater sensor deployment depths)
+
+**How it works:**
+- Relay nodes are randomly distributed between min and max depth
+- Sink is typically at surface (z=0)
+- Sender can be at any depth (default: 50m)
+
+**Implementation:**
+```cpp
+// Lines 146-149 in uwsn-research_v2.cc
+std::uniform_real_distribution<> disZ(minDepth, maxDepth);
+for (int i = 0; i < nodes; ++i) {
+    position->Add(Vector(disX(gen), disY(gen), disZ(gen)));  // Z from depth range
+}
+```
+
+**Impact on protocols:**
+- **VBF**: 
+  - Depth affects 3D pipeline geometry
+  - Vertical spread impacts which nodes are "inside" the pipeline
+  - Larger depth range → more 3D routing complexity
+  
+- **DBR**: ⭐ **CRITICAL for DBR**
+  - DBR routing decisions are **based entirely on depth**
+  - Nodes at shallower depth forward packets toward surface (sink)
+  - Larger depth range → more depth "layers" → more routing hops
+  - Formula: `holding_time = f(current_depth - previous_hop_depth)`
+  
+- **Flooding**: 
+  - Affects vertical connectivity
+  - Deeper range → more 3D spread → potentially more hops
+
+**Example:**
+```bash
+# Shallow deployment (0-100m)
+python3 run_all.py --min-depth 0 --max-depth 100 --protocols DBR --runs 10
+
+# Deep deployment (0-600m)
+python3 run_all.py --min-depth 0 --max-depth 600 --protocols DBR --runs 10
+
+# Mid-water deployment (200-400m, no surface/bottom)
+python3 run_all.py --min-depth 200 --max-depth 400 --protocols VBF --runs 10
+```
+
+**Use cases:**
+- DBR depth-routing analysis (most important use case)
+- Deployment depth optimization
+- Pressure/depth effects simulation
+- Stratified water layer studies
+
+**Important for DBR:** Since DBR forwards based on depth, varying this parameter is essential for studying DBR's depth-based greedy forwarding mechanism.
+
+---
+
+### Parameter 4: VBF Routing Pipe Radius (`--vbf-width`)
+
+**What it controls:** The radius (width) of the virtual routing "pipeline" in VBF protocol
+
+**Default:** `100` meters
+
+**Range:** 50 - 200 meters (typical for UWSN)
+
+**Applies to:** **VBF protocol ONLY** (ignored by DBR and Flooding)
+
+**How it works:**
+- VBF creates a virtual "pipe" from sender to sink
+- Only nodes within this pipe's radius participate in forwarding
+- Width determines how many nodes can be forwarders
+
+**Implementation:**
+```cpp
+// Lines 131-133 in uwsn-research_v2.cc
+if (protocol == "VBF") {
+  asHelper.SetRouting("ns3::AquaSimVBF", 
+                      "Width", DoubleValue(vbfWidth),  // Sets m_width in VBF
+                      "TargetPos", Vector3DValue(Vector(sinkX, sinkY, sinkZ)));
+}
+```
+
+**VBF Internal Usage:**
+```cpp
+// In aqua-sim-routing-vbf.cc
+double delay = (p/m_width) + ((range - d*cos_theta)/range);
+// p = perpendicular distance from node to pipeline axis
+// If p < m_width → node is inside pipe → can forward
+// If p > m_width → node is outside pipe → drops packet
+```
+
+**Impact:**
+
+| Width | Nodes Inside Pipe | PDR | Overhead | Best For |
+|-------|------------------|-----|----------|----------|
+| **Narrow (50m)** | Few | Lower | Low | Sparse networks, energy-constrained |
+| **Medium (100m)** | Moderate | Good | Medium | Balanced performance |
+| **Wide (200m)** | Many | Higher | High | Dense networks, reliability-critical |
+
+**Trade-offs:**
+- ✅ **Wider pipe**: More forwarders → higher reliability → better PDR
+- ❌ **Wider pipe**: More duplicates → higher energy consumption → more collisions
+- ✅ **Narrower pipe**: Fewer forwarders → lower overhead → energy efficient
+- ❌ **Narrower pipe**: Fewer paths → lower reliability → may fail if nodes die
+
+**Example:**
+```bash
+# Test VBF width impact (only affects VBF)
+python3 run_all.py --protocol VBF --vbf-width 50 --runs 10   # Narrow pipe
+python3 run_all.py --protocol VBF --vbf-width 100 --runs 10  # Medium pipe
+python3 run_all.py --protocol VBF --vbf-width 150 --runs 10  # Wide pipe
+
+# Width has NO effect on DBR or Flooding
+python3 run_all.py --protocol DBR --vbf-width 200 --runs 10  # Width ignored
+```
+
+**Use cases:**
+- VBF optimization studies
+- Reliability vs overhead trade-off analysis
+- Pipeline geometry research
+- Void avoidance studies (narrow pipe may avoid voids)
+
+**Important:** This is the **key parameter** for VBF protocol tuning!
+
+---
+
+### Parameter 5: Mobility Model (`--mobility`)
+
+**What it controls:** Whether nodes move during simulation or stay stationary
+
+**Default:** `static`
+
+**Options:** 
+- `static`: Nodes remain at fixed positions (anchored sensors)
+- `random`: Nodes drift horizontally due to water currents
+
+**Applies to:** All protocols (VBF, DBR, Flooding)
+
+**How it works:**
+
+**Static Mode:**
+```cpp
+mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
+```
+- Nodes stay at initial random positions
+- Topology never changes
+- Most common for anchored underwater sensors
+
+**Random Mode:**
+```cpp
+mobility.SetMobilityModel("ns3::RandomWalk2dMobilityModel",
+    "Bounds", RectangleValue(Rectangle(0, areaX, 0, areaY)),  // X,Y only
+    "Speed", StringValue("ns3::ConstantRandomVariable[Constant=2.0]"),  // 2 m/s
+    "Distance", DoubleValue(50.0));  // Move 50m then change direction
+```
+- Nodes move **horizontally only** (X and Y axes)
+- **Depth (Z) stays constant** - realistic for buoyant sensors
+- Speed: 2 m/s (typical ocean current speed)
+- Random walk pattern: move 50m, pick new random direction, repeat
+
+**Why X,Y only (horizontal)?**
+- Real underwater sensors float at fixed depth (buoyancy control)
+- Ocean currents are primarily horizontal
+- Vertical movement is rare (except AUVs)
+- **DBR requires constant depth** for depth-based routing to work
+
+**Impact on protocols:**
+
+| Protocol | Static Behavior | Random (Mobile) Behavior |
+|----------|----------------|-------------------------|
+| **VBF** | Pipeline geometry fixed → consistent routing | Pipeline to sink stays valid (depth fixed) but nodes may drift in/out of pipe radius → PDR may vary |
+| **DBR** | Depth hierarchy fixed → optimal routing | ✅ **Still works!** Depth fixed, only horizontal position changes → depth-based routing unaffected |
+| **Flooding** | Neighbor set fixed → predictable overhead | Neighbors change → broadcast reaches different nodes → may improve/reduce coverage |
+
+**Example:**
+```bash
+# Compare static vs mobile
+python3 run_all.py --protocols VBF DBR flooding --mobility static --runs 15
+python3 run_all.py --protocols VBF DBR flooding --mobility random --runs 15
+
+# Test which protocol is most robust to mobility
+python3 run_all.py --protocols VBF --mobility random --runs 20
+python3 run_all.py --protocols DBR --mobility random --runs 20
+```
+
+**Use cases:**
+- Mobility robustness studies
+- Comparison of static vs dynamic topology performance
+- Water current impact simulation
+- Protocol adaptability analysis
+
+**Expected Results:**
+- **VBF**: May see PDR drop with mobility (nodes move out of pipeline)
+- **DBR**: Should handle mobility well (depth-based routing still valid)
+- **Flooding**: May see increased/decreased coverage depending on movement
+
+---
+
+## Parameter Interaction Matrix
+
+How parameters affect each protocol:
+
+| Parameter | VBF | DBR | Flooding |
+|-----------|-----|-----|----------|
+| **1. Nodes** | ⭐⭐⭐ Affects density in pipeline | ⭐⭐⭐ Affects depth-layer density | ⭐⭐⭐ Affects broadcast coverage |
+| **2. Range** | ⭐⭐⭐ Used in delay calculation | ⭐⭐⭐ Determines reachable neighbors | ⭐⭐⭐ Determines broadcast radius |
+| **3. Depth** | ⭐⭐ Affects 3D pipeline geometry | ⭐⭐⭐ **CRITICAL** - routing based on depth | ⭐ Affects vertical connectivity |
+| **4. VBF Width** | ⭐⭐⭐ **CRITICAL** - defines routing pipe | ❌ Not used | ❌ Not used |
+| **5. Mobility** | ⭐⭐ Pipeline membership may change | ⭐ Robust (depth fixed) | ⭐⭐ Neighbor set changes |
+
+---
+
+## Complete Parameter Example
+
+Test all 5 parameters together:
+
+```bash
+cd ~/NS3-Research/scripts
+
+python3 run_all.py \
+  --protocols VBF DBR flooding \
+  --nodes 100 150 200 \
+  --range 120 \
+  --min-depth 0 \
+  --max-depth 300 \
+  --vbf-width 80 \
+  --mobility random \
+  --runs 15 \
+  --simtime 500
+
+# This will run: 3 protocols × 3 node counts × 15 runs = 135 experiments
+# Results will show impact of all 5 parameters on each protocol
+```
+
+---
+
+## Parameter Selection Guidelines
+
+### For VBF Studies:
+```bash
+# Focus on width and range
+python3 run_all.py --protocol VBF \
+  --vbf-width 50 100 150 \
+  --range 100 150 \
+  --nodes 100 \
+  --runs 20
+```
+
+### For DBR Studies:
+```bash
+# Focus on depth variation
+python3 run_all.py --protocol DBR \
+  --min-depth 0 --max-depth 200 \
+  --runs 15
+
+python3 run_all.py --protocol DBR \
+  --min-depth 0 --max-depth 400 \
+  --runs 15
+```
+
+### For Mobility Studies:
+```bash
+# Compare all protocols with/without mobility
+python3 run_all.py --protocols VBF DBR flooding \
+  --mobility static --runs 15
+
+python3 run_all.py --protocols VBF DBR flooding \
+  --mobility random --runs 15
+```
+
+### For Scalability Studies:
+```bash
+# Test multiple node counts
+python3 run_all.py --protocols VBF DBR \
+  --nodes 50 100 150 200 250 \
+  --runs 10
+```
 
 ---
 
