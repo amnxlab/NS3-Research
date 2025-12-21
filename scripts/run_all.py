@@ -222,10 +222,20 @@ def run_single_experiment(params):
         )
         
         if result.returncode == 0:
-            print(f"  ✓ Completed: {protocol} | Nodes: {nodes} | Run: {run_number}")
+            # Parse PDR from output
+            pdr_match = re.search(r'PDR:\s+([\d.]+)%', result.stdout)
+            sent_match = re.search(r'Sender Sent:\s+(\d+)', result.stdout)
+            recv_match = re.search(r'Sink Received:\s+(\d+)', result.stdout)
+            
+            pdr_str = f"PDR: {pdr_match.group(1)}%" if pdr_match else "PDR: N/A"
+            if sent_match and recv_match:
+                pdr_str += f" (Sent: {sent_match.group(1)}, Recv: {recv_match.group(1)})"
+            
+            print(f"  ✓ {pdr_str}")
             return True
         else:
             print(f"  ✗ Failed: {protocol} | Nodes: {nodes} | Run: {run_number}")
+            print(f"     Error: {result.stderr[:200]}")  # Show first 200 chars of error
             return False
             
     except subprocess.TimeoutExpired:
