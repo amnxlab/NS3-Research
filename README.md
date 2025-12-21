@@ -1,289 +1,211 @@
-# UWSN Protocol Comparison Framework
+# UWSN Protocol Comparison Framework - Version 2
 
 Underwater Wireless Sensor Network (UWSN) simulation framework for comparing routing protocols using ns-3 and Aqua-Sim-NG.
 
----
-
-## Table of Contents
-
-- [Features](#features)
-- [Directory Structure](#directory-structure)
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Usage](#usage)
-- [Command Line Options](#command-line-options)
-- [Output Format](#output-format)
-- [Graphs Generated](#graphs-generated)
-- [Topology](#topology)
-- [Protocols](#protocols)
-- [Requirements](#requirements)
-- [Troubleshooting](#troubleshooting)
+**Version 2 Features:**
+- 🎯 5 configurable parameters (nodes, range, depth, VBF width, mobility)
+- 🚀 All-in-one script (experiments + analysis + plots)
+- 📊 Publication-quality graphs
+- 🔧 No protocol logic changed
 
 ---
 
-## Features
+## Quick Start
 
-- **Protocol Comparison**: VBF, DBR, and Flooding routing protocols
-- **Traffic Modes**: OnOff (original) or CBR (constant bit rate)
-- **Metrics**: PDR, Energy consumption, Packet statistics
-- **Automation**: Python scripts for batch experiments
-- **Analysis**: Statistical analysis with confidence intervals
-- **Visualization**: Publication-quality graphs
-
----
-
-## Directory Structure
-
-```
-~/NS3-Research/                 # This repository
-├── src/
-│   └── uwsn-research.cc        # Main simulation
-├── scripts/
-│   ├── run_experiments.py      # Batch runner
-│   ├── analyze_results.py      # Statistics
-│   ├── plot_results.py         # Graphs
-│   ├── test_setup.py           # Setup verification
-│   └── requirements.txt        # Python dependencies
-├── results/                    # CSV output (auto-created)
-├── graphs/                     # PNG graphs (auto-created)
-├── examples/
-│   └── VBF.cc                  # Reference example
-└── docs/
-    └── Implementation_Summary.md
-
-~/ns3/                          # ns-3 installation (separate)
-└── ns-allinone-3.42/
-    └── ns-3.42/
-        ├── scratch/            # Simulation copied here
-        └── contrib/
-            └── aqua-sim-ng/    # Underwater module
-```
-
----
-
-## Installation
-
-### Prerequisites
-
-1. **ns-3.42** installed with Aqua-Sim-NG module
-2. **Python 3.8+**
-
-### Step 1: Install Python Dependencies
+### 1. Install Python Dependencies
 
 ```bash
 cd ~/NS3-Research/scripts
 python3 -m pip install -r requirements.txt
 ```
 
-### Step 2: Verify ns-3 Installation
-
-The scripts will **automatically search your home directory** for ns-3 installations (supports versions **3.40-3.49**).
-
-**Search process**:
-1. Scans all directories in your home folder
-2. Checks common patterns:
-   - `~/ns3/ns-allinone-3.4x/ns-3.4x`
-   - `~/ns-allinone-3.4x/ns-3.4x`
-   - `~/workspace/ns-allinone-3.4x/ns-3.4x`
-   - Any subdirectory containing ns-3.4x
-3. Also checks system directories: `/usr/local`, `/opt`
-
-To test detection:
-```bash
-cd ~/NS3-Research/scripts
-python3 run_experiments.py --help
-```
-
-You should see:
-```
-Searching for ns-3.4x installation in home directory...
-  Found: /home/username/ns3/ns-allinone-3.42/ns-3.42
-
-✓ Auto-detected ns-3 version: ns-3.42
-  Location: /home/username/ns3/ns-allinone-3.42/ns-3.42
-Using paths:
-  Research Dir: /home/username/NS3-Research
-  NS-3 Path: /home/username/ns3/ns-allinone-3.42/ns-3.42
-  Source Dir: /home/username/NS3-Research/src
-  Results Dir: /home/username/NS3-Research/results
-```
-
-### Step 3: Verify Installation
+### 2. Run Complete Workflow
 
 ```bash
-cd ~/NS3-Research/scripts
-python3 test_setup.py
+# One command does everything!
+python3 run_all.py \
+  --protocols VBF DBR flooding \
+  --nodes 100 \
+  --runs 15
 ```
 
-This checks:
-- ✓ Python packages installed
-- ✓ Path detection working
-- ✓ ns-3 build system accessible
+**Output:**
+- ✅ Results saved to `results/uwsn_v2_results_TIMESTAMP.csv`
+- ✅ Analysis printed to console
+- ✅ Graphs saved to `scripts/graphs/`
 
 ---
 
-## Quick Start
+## The 5 Configurable Parameters
 
-### Run First Experiment
+| # | Parameter | Command Line | Default | Description |
+|---|-----------|--------------|---------|-------------|
+| 1 | **Nodes** | `--nodes` | 100 | Number of relay nodes |
+| 2 | **Range** | `--range` | 100m | Communication range |
+| 3 | **Depth** | `--min-depth`, `--max-depth` | 0-400m | Vertical placement range |
+| 4 | **VBF Width** | `--vbf-width` | 100m | Routing pipe radius (VBF only) |
+| 5 | **Mobility** | `--mobility` | static | static or random (horizontal X,Y only) |
 
-```bash
-cd ~/NS3-Research/scripts
+---
 
-# Quick test (1 run, 50 seconds)
-python3 run_experiments.py --protocols VBF --nodes 100 --runs 1 --simtime 50
+## Directory Structure
 
-# Full experiment (15 runs)
-python3 run_experiments.py --protocols VBF DBR flooding --nodes 100 --runs 15
 ```
-
-### Generate Analysis and Graphs
-
-```bash
-# Analyze results
-python3 analyze_results.py ../results/uwsn_results_*.csv
-
-# Generate graphs
-python3 plot_results.py ../results/uwsn_results_*.csv --format png
+~/NS3-Research/
+├── src/
+│   └── uswn-research.cc/
+│       └── uwsn-research_v2.cc        # Main simulation
+├── scripts/
+│   ├── run_all.py                     # ⭐ USE THIS (all-in-one)
+│   ├── analyze_results.py             # Optional: standalone analysis
+│   ├── plot_results.py                # Optional: standalone plotting
+│   └── requirements.txt               # Python dependencies
+├── docs/
+│   ├── V2_FINAL.md                    # Complete guide
+│   ├── V2_Summary.md                  # Quick reference
+│   ├── V2_Parameters.md               # Parameter details
+│   └── V2_All_In_One.md               # run_all.py usage
+├── models/                            # For custom protocol modifications
+├── results/                           # CSV outputs (auto-created)
+└── graphs/                            # PNG plots (auto-created)
 ```
 
 ---
 
-## Usage
+## Usage Examples
 
-### Single Simulation (Manual)
-
-```bash
-cd ~/ns3/ns-allinone-3.42/ns-3.42
-
-# OnOff traffic (original)
-./ns3 run "uwsn-research --protocol=VBF --simStop=500"
-
-# CBR traffic
-./ns3 run "uwsn-research --protocol=VBF --simStop=500 --cbr=true"
-
-# Different protocol
-./ns3 run "uwsn-research --protocol=DBR --simStop=500"
-./ns3 run "uwsn-research --protocol=flooding --simStop=500"
-```
-
-### Batch Experiments (Automated)
+### Basic Protocol Comparison
 
 ```bash
 cd ~/NS3-Research/scripts
 
-# Compare protocols (OnOff mode)
-python3 run_experiments.py --protocols VBF DBR flooding --nodes 100 --runs 15
-
-# Compare protocols (CBR mode)
-python3 run_experiments.py --protocols VBF DBR flooding --nodes 100 --runs 15 --cbr
-
-# Scalability test
-python3 run_experiments.py --protocols VBF --nodes 50 100 150 200 --runs 10
-
-# Quick test
-python3 run_experiments.py --protocols VBF --nodes 100 --runs 1 --simtime 50
-
-# Debug mode
-python3 run_experiments.py --protocols VBF --nodes 100 --runs 1 --debug
+python3 run_all.py \
+  --protocols VBF DBR flooding \
+  --nodes 100 \
+  --runs 15
 ```
 
-### Analysis and Visualization
+### Quick Test (Fast)
 
 ```bash
-cd ~/NS3-Research/scripts
+python3 run_all.py \
+  --protocols VBF \
+  --nodes 100 \
+  --runs 1 \
+  --simtime 50
+```
 
-# Generate statistics (mean, std, 95% CI)
-python3 analyze_results.py ../results/uwsn_results_*.csv
+### Scalability Study
 
-# Generate all graphs
-python3 plot_results.py ../results/uwsn_results_*.csv --format png
+```bash
+python3 run_all.py \
+  --protocols VBF DBR \
+  --nodes 50 100 150 200 \
+  --runs 10
+```
 
-# Specify output directory
-python3 plot_results.py ../results/uwsn_results_*.csv --format png --output-dir ../graphs
+### Range Impact Study
+
+```bash
+# Test different communication ranges
+python3 run_all.py --protocols VBF --nodes 100 --runs 10 --range 80
+python3 run_all.py --protocols VBF --nodes 100 --runs 10 --range 120
+python3 run_all.py --protocols VBF --nodes 100 --runs 10 --range 150
+```
+
+### Mobility Comparison
+
+```bash
+# Static nodes
+python3 run_all.py \
+  --protocols VBF DBR flooding \
+  --nodes 100 \
+  --runs 15 \
+  --mobility static
+
+# Mobile nodes (horizontal drift)
+python3 run_all.py \
+  --protocols VBF DBR flooding \
+  --nodes 100 \
+  --runs 15 \
+  --mobility random
 ```
 
 ---
 
 ## Command Line Options
 
-### Simulation (uwsn-research)
+### Experiment Parameters
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--protocol` | VBF | Routing protocol: VBF, DBR, flooding |
-| `--nodes` | 100 | Number of intermediate nodes |
-| `--simStop` | 1000 | Simulation duration (seconds) |
-| `--range` | 100 | Transmission range (meters) |
-| `--dataRate` | 10000 | Data rate (bps) |
-| `--packetSize` | 40 | Packet size (bytes) |
-| `--cbr` | false | Use CBR traffic (true/false) |
-| `--runNumber` | 1 | Random seed |
-| `--csvFile` | uwsn-results.csv | Output file |
+| `--protocols` | VBF DBR flooding | Protocols to test (space-separated) |
+| `--nodes` | 100 | Node counts to test (space-separated) |
+| `--runs` | 30 | Number of runs per configuration |
+| `--simtime` | 1000 | Simulation duration (seconds) |
 
-### Experiment Runner (run_experiments.py)
+### 5 Configurable Parameters
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--protocols` | VBF DBR flooding | Protocols to test |
-| `--nodes` | 50 100 150 200 | Node counts |
-| `--runs` | 30 | Runs per configuration |
-| `--simtime` | 1000 | Simulation time |
-| `--data-rate` | 10000 | Data rate (bps) |
-| `--packet-size` | 40 | Packet size (bytes) |
-| `--range` | 100 | Transmission range (m) |
-| `--cbr` | (flag) | Use CBR traffic |
-| `--skip-build` | (flag) | Skip copying and building |
-| `--output` | auto | Output CSV path |
-| `--debug` | (flag) | Show debug output |
+| `--range` | 100 | Communication range (meters) |
+| `--min-depth` | 0.0 | Minimum depth (meters) |
+| `--max-depth` | 400.0 | Maximum depth (meters) |
+| `--vbf-width` | 100.0 | VBF routing pipe radius (meters) |
+| `--mobility` | static | Mobility model: static or random |
+
+### Control Options
+
+| Option | Description |
+|--------|-------------|
+| `--skip-build` | Skip building ns-3 (use existing build) |
+| `--skip-analysis` | Skip analysis step |
+| `--skip-plots` | Skip plotting step |
+| `--output` | Custom output CSV path |
 
 ---
 
-## Output Format
+## What Gets Generated
 
-### CSV Columns
+### 1. CSV Results
 
+**Location**: `results/uwsn_v2_results_TIMESTAMP.csv`
+
+**Columns**:
 ```
-run, protocol, nodes, simStop, range, traffic_mode, data_rate, packet_size,
-sender_sent, sink_recv, pdr,
-total_initial_energy, total_consumed_energy, avg_energy_per_node
-```
-
-### Console Output
-
-```
-=== UWSN PROTOCOL COMPARISON ===
-Protocol: VBF | Run: 1
-...
---- End-to-End ---
-Sender Sent: 202
-Sink Received: 202
-PDR: 100%
-
-=== RESULTS ===
-PDR: 100%
-Energy Consumed: 405.2 J
-Avg Energy/Node: 3.97 J
+run, protocol, nodes, sinks, simStop,
+range, minDepth, maxDepth, vbfWidth, mobility,
+areaX, areaY, initial_energy_per_node, tx_power, rx_power, idle_power,
+total_initial_energy, total_consumed_energy, total_residual_energy
 ```
 
----
+### 2. Console Analysis
 
-## Graphs Generated
+```
+=======================================================================
+   ANALYSIS BY PROTOCOL
+=======================================================================
 
-**5 Meaningful, Publication-Quality Graphs:**
+VBF (n=15 runs)
+----------------------------------------
+  Total Energy: 405.2 ± 12.3 J
+  Residual Energy: 50094.8 J
 
-| # | Graph | Description |
-|---|-------|-------------|
-| 1 | `1_protocol_comparison.png` | **Most Important** - PDR, Energy, Throughput side-by-side |
-| 2 | `2_scalability_analysis.png` | PDR and Energy vs Network Size |
-| 3 | `3_reliability_analysis.png` | Consistency box plots (variance analysis) |
-| 4 | `4_energy_pdr_tradeoff.png` | Scatter plot showing efficiency trade-offs |
-| 5 | `5_comprehensive_summary.png` | Complete 2×2 dashboard with performance table |
+DBR (n=15 runs)
+----------------------------------------
+  Total Energy: 412.5 ± 15.1 J
+  Residual Energy: 50087.5 J
+```
 
-**Why only 5 graphs?**
-- Focused on meaningful insights
-- No redundant metrics
-- Publication-ready quality
-- Easy to understand
+### 3. Graphs
+
+**Location**: `scripts/graphs/`
+
+| File | Description |
+|------|-------------|
+| `v2_energy_comparison.png` | Bar chart comparing total energy |
+| `v2_energy_distribution.png` | Box plot showing energy variance |
+| `v2_scalability_analysis.png` | Energy vs node count (if multiple node counts tested) |
 
 ---
 
@@ -291,49 +213,55 @@ Avg Energy/Node: 3.97 J
 
 ```
 Area: 400m × 400m × 400m (depth)
-Range: 100m
+Default Range: 100m
 
      Surface (z=0)
      ┌─────────────────────┐
-     │         ⬤ Sink      │  (200, 200, 0)
-     │      (center)       │
+     │    ⬤ Sink (190,190,0)│
      │                     │
      │    ○ ○ ○ ○ ○ ○     │  Relay nodes
      │   ○ ○ ○ ○ ○ ○ ○    │  (random positions)
      │    ○ ○ ○ ○ ○ ○     │
      │                     │
-     │      ◆ Sender       │  (100, 100, 300)
+     │  ◆ Sender (10,10,50) │
      └─────────────────────┘
      Bottom (z=400)
 ```
+
+**Mobility:**
+- `static`: Nodes stay at fixed positions
+- `random`: Nodes drift horizontally (X,Y only) at 2 m/s, depth stays constant
 
 ---
 
 ## Protocols
 
-| Protocol | Description | Best For |
-|----------|-------------|----------|
-| **VBF** | Vector-Based Forwarding - uses virtual pipeline | Dense networks |
-| **DBR** | Depth-Based Routing - forwards toward surface | Simple deployment |
-| **Flooding** | Broadcast to all neighbors | Baseline comparison |
+| Protocol | Description | How Parameters Affect It |
+|----------|-------------|-------------------------|
+| **VBF** | Vector-Based Forwarding | `--vbf-width` sets routing pipe radius |
+| **DBR** | Depth-Based Routing | `--min-depth`, `--max-depth` affect node placement |
+| **Flooding** | Broadcast to all neighbors | `--range` affects number of neighbors |
+
+**Note**: Protocol logic is NOT modified. Parameters only affect deployment and configuration.
 
 ---
 
 ## Requirements
 
 ### System
-- ns-3 versions **3.40 through 3.49** (auto-detected)
-- Aqua-Sim-NG module (in ns-3 contrib folder)
+- ns-3 versions 3.40-3.49 (auto-detected in home directory)
+- Aqua-Sim-NG module (installed in ns-3 contrib folder)
 - Python 3.8+
 
 ### Python Packages
-Install with: `python3 -m pip install -r scripts/requirements.txt`
+```bash
+python3 -m pip install -r scripts/requirements.txt
+```
 - pandas
 - matplotlib
 - seaborn
 - scipy
-
-**Note**: The framework automatically detects any ns-3.4x version (3.40-3.49) installed on your system.
+- numpy
 
 ---
 
@@ -341,128 +269,175 @@ Install with: `python3 -m pip install -r scripts/requirements.txt`
 
 ### ns-3 Not Found
 
-If you see:
-```
-ERROR: Could not auto-detect ns-3 installation (versions 3.40-3.49).
-Please enter the full path to your ns-3.4x directory
-```
+The script auto-searches your home directory for ns-3.4x installations.
 
-**Solution 1**: Enter your ns-3 path when prompted:
-```
-> /home/myuser/workspace/ns-allinone-3.42/ns-3.42
-```
+If it can't find ns-3, you'll be prompted to enter the path manually.
 
-**Solution 2**: Manual configuration in `scripts/run_experiments.py`:
-```python
-# Add your custom path to search_bases list (around line 38)
-search_bases = [
-    Path("/your/custom/path"),  # Add this line
-    Path.home() / "ns3",
-    Path.home(),
-    # ... rest of paths
-]
-```
+To add a custom search location, edit `scripts/run_all.py` and add your path to the search list.
 
-**Supported versions**: ns-3.40, ns-3.41, ns-3.42, ns-3.43, ... ns-3.49
-
-### Python Package Errors
+### Python Packages Missing
 
 ```bash
-# Use virtual environment
-python3 -m venv venv
-source venv/bin/activate
+cd ~/NS3-Research/scripts
 python3 -m pip install -r requirements.txt
 ```
 
 ### Build Errors
 
 ```bash
-cd ~/ns3/ns-allinone-3.42/ns-3.42
+cd ~/ns3/ns-allinone-3.42/ns-3.42  # or your ns-3 path
 rm -rf cmake-cache build
 ./ns3 configure --enable-examples
 ./ns3 build
 ```
 
-### Low PDR
+Then run with `--skip-build`:
+```bash
+python3 run_all.py --skip-build --protocols VBF --runs 5
+```
 
-- Increase `--range` (e.g., 150)
-- Decrease area size in source code
-- Increase `--nodes` for denser deployment
+---
 
-### Simulation Hangs
+## Documentation
 
-- Reduce `--simStop` time
-- Check energy parameters (nodes may run out)
+### Start Here:
+- 📖 **`docs/V2_FINAL.md`** - Complete overview and file structure
 
-### View Results
+### Reference:
+- 📖 **`docs/V2_All_In_One.md`** - How to use run_all.py
+- 📖 **`docs/V2_Parameters.md`** - Detailed parameter explanations
+- 📖 **`docs/V2_Summary.md`** - Quick reference card
+
+---
+
+## Advanced Usage
+
+### Run Only Specific Steps
 
 ```bash
-# CSV files
-ls -lh ~/NS3-Research/results/
+# Only experiments (no analysis/plots)
+python3 run_all.py --skip-analysis --skip-plots
 
-# Graphs
-ls -lh ~/NS3-Research/scripts/graphs/
+# Use existing build
+python3 run_all.py --skip-build
+
+# Custom output file
+python3 run_all.py --output my_results.csv
 ```
+
+### Separate Scripts (Optional)
+
+If you prefer to run steps separately:
+
+```bash
+# 1. Experiments only
+python3 run_all.py --skip-analysis --skip-plots
+
+# 2. Analyze existing CSV
+python3 analyze_results.py results/uwsn_v2_results_*.csv
+
+# 3. Generate plots from CSV
+python3 plot_results.py results/uwsn_v2_results_*.csv --format png
+```
+
+---
+
+## Protocol Modifications
+
+If you want to modify protocol behavior:
+
+1. Copy protocol files from ns-3:
+   ```bash
+   cp ~/ns3/ns-allinone-3.42/ns-3.42/contrib/aqua-sim-ng/model/aqua-sim-routing-vbf.* \
+      ~/NS3-Research/models/
+   ```
+
+2. Edit the files in `~/NS3-Research/models/`
+
+3. Update ns-3 to use your modified versions
+
+4. Rebuild ns-3
+
+**Current V2 does NOT modify any protocol logic** - it only adds configurable parameters.
 
 ---
 
 ## Example Workflow
 
 ```bash
-# 1. Setup
+# 1. Install dependencies (first time)
 cd ~/NS3-Research/scripts
 python3 -m pip install -r requirements.txt
-python3 test_setup.py
 
-# 2. Run experiments
-python3 run_experiments.py --protocols VBF DBR flooding --nodes 100 --runs 15
+# 2. Quick test to verify everything works
+python3 run_all.py \
+  --protocols VBF \
+  --nodes 100 \
+  --runs 1 \
+  --simtime 50
 
-# 3. Analyze
-python3 analyze_results.py ../results/uwsn_results_*.csv
+# 3. Full protocol comparison
+python3 run_all.py \
+  --protocols VBF DBR flooding \
+  --nodes 100 \
+  --runs 30
 
-# 4. Visualize
-python3 plot_results.py ../results/uwsn_results_*.csv --format png
+# 4. Check results
+ls -lh ../results/
+ls -lh graphs/
 
 # 5. View graphs
-ls -lh graphs/
+# Open PNG files in graphs/ directory
 ```
 
 ---
 
-## Portable Setup
+## What Changed from V1
 
-To run on different machines:
-
-1. **Clone repository:**
-   ```bash
-   git clone <repo-url> ~/NS3-Research
-   ```
-
-2. **Install dependencies:**
-   ```bash
-   cd ~/NS3-Research/scripts
-   python3 -m pip install -r requirements.txt
-   ```
-
-3. **Run experiments:**
-   ```bash
-   python3 run_experiments.py --protocols VBF --nodes 100 --runs 5
-   ```
-
-The scripts will automatically find your ns-3 installation!
+| Feature | V1 | V2 |
+|---------|----|----|
+| **Parameters** | Fixed in code | 5 configurable from command line |
+| **Scripts** | 3 separate scripts | 1 all-in-one script |
+| **Mobility** | Static only | Static or Random (X,Y) |
+| **VBF Width** | Fixed (100m) | Configurable |
+| **Range** | Fixed (100m) | Configurable |
+| **Depth** | Fixed (0-400m) | Configurable |
 
 ---
 
 ## Tips
 
-- **Fast testing**: Use `--runs 1 --simtime 50` for quick tests
-- **Full comparison**: Use `--runs 30` for publication results
-- **CBR vs OnOff**: Add `--cbr` flag to compare traffic types
-- **Scalability**: Test with `--nodes 50 100 150 200`
-- **Debug**: Use `--debug` flag to see simulation output
+- 💡 **Quick testing**: Use `--runs 1 --simtime 50`
+- 💡 **Publication results**: Use `--runs 30` or more
+- 💡 **Save time**: Use `--skip-build` after first run
+- 💡 **Multiple experiments**: Change parameters and compare results
+- 💡 **Mobility**: Test both `static` and `random` to see protocol robustness
+
+---
+
+## Citation
+
+If you use this framework in your research, please cite:
+
+```
+[Your citation information here]
+```
 
 ---
 
 ## License
 
-Research use only. Based on Aqua-Sim-NG examples.
+Research use only. Based on ns-3 and Aqua-Sim-NG.
+
+---
+
+## Support
+
+For issues or questions:
+1. Check `docs/V2_FINAL.md` for complete documentation
+2. Review troubleshooting section above
+3. Ensure all requirements are installed
+
+---
+
+**Ready to run your UWSN experiments!** 🚀
