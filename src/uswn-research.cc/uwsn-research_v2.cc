@@ -234,11 +234,13 @@ main(int argc, char *argv[])
   asHelper.GetChannel()->PrintCounters();
 
   // ==== EDITED: Calculate PDR from sender/sink devices ====
+  // FIX: Use RecvPktCount() which counts packets where THIS node is destination
+  // NOT SendUpPktCount() which includes forwarded packets
   Ptr<AquaSimNetDevice> senderDev = DynamicCast<AquaSimNetDevice>(senderCon.Get(0)->GetDevice(0));
   Ptr<AquaSimNetDevice> sinkDev = DynamicCast<AquaSimNetDevice>(sinksCon.Get(0)->GetDevice(0));
   
   int senderSentPkts = senderDev->TotalSentPkts();
-  int sinkRecvPkts = sinkDev->GetRouting()->SendUpPktCount();
+  int sinkRecvPkts = sinkDev->GetRouting()->RecvPktCount();  // FIXED: Use RecvPktCount()
   double pdr = (senderSentPkts > 0) ? (double)sinkRecvPkts / senderSentPkts : 0.0;
   
   std::cout << "\n--- End-to-End ---\n";
