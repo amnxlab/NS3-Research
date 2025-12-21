@@ -317,6 +317,11 @@ def analyze_results(csv_file):
         print("-" * 40)
         
         # Calculate statistics
+        if 'pdr' in data.columns:
+            pdr_mean = data['pdr'].mean() * 100  # Convert to percentage
+            pdr_std = data['pdr'].std() * 100
+            print(f"  PDR: {pdr_mean:.2f}% ± {pdr_std:.2f}%")
+        
         if 'total_consumed_energy' in data.columns:
             energy_mean = data['total_consumed_energy'].mean()
             energy_std = data['total_consumed_energy'].std()
@@ -325,6 +330,11 @@ def analyze_results(csv_file):
         if 'total_residual_energy' in data.columns:
             residual_mean = data['total_residual_energy'].mean()
             print(f"  Residual Energy: {residual_mean:.2f} J")
+        
+        if 'sender_sent' in data.columns and 'sink_recv' in data.columns:
+            total_sent = data['sender_sent'].sum()
+            total_recv = data['sink_recv'].sum()
+            print(f"  Total Packets: Sent={total_sent}, Received={total_recv}")
     
     return df
 
@@ -341,7 +351,41 @@ def plot_results(df, output_dir):
     plt.style.use('seaborn-v0_8-whitegrid')
     sns.set_palette("husl")
     
-    # Plot 1: Energy Comparison
+    # Plot 1: PDR Comparison
+    print("Generating PDR comparison...")
+    fig, ax = plt.subplots(figsize=(10, 6))
+    
+    protocols = sorted(df['protocol'].unique())
+    pdr_data = df.groupby('protocol')['pdr'].agg(['mean', 'std']).reset_index()
+    pdr_data['mean'] *= 100  # Convert to percentage
+    pdr_data['std'] *= 100
+    
+    x_pos = np.arange(len(protocols))
+    bars = ax.bar(x_pos, pdr_data['mean'],
+                  yerr=pdr_data['std'],
+                  color=[PROTOCOL_COLORS.get(p, 'gray') for p in protocols],
+                  capsize=5, alpha=0.8, edgecolor='black', linewidth=1.2)
+    
+    ax.set_xlabel('Protocol', fontsize=12, fontweight='bold')
+    ax.set_ylabel('Packet Delivery Ratio (%)', fontsize=12, fontweight='bold')
+    ax.set_title('PDR Comparison', fontsize=14, fontweight='bold')
+    ax.set_xticks(x_pos)
+    ax.set_xticklabels(protocols, fontsize=11)
+    ax.set_ylim(0, 100)
+    ax.grid(axis='y', alpha=0.3)
+    
+    for bar in bars:
+        height = bar.get_height()
+        ax.text(bar.get_x() + bar.get_width()/2., height,
+                f'{height:.1f}%', ha='center', va='bottom', fontweight='bold')
+    
+    plt.tight_layout()
+    output_file = output_dir / 'v2_pdr_comparison.png'
+    plt.savefig(output_file, dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"  ✓ Saved: {output_file}")
+    
+    # Plot 2: Energy Comparison
     print("Generating energy comparison...")
     fig, ax = plt.subplots(figsize=(10, 6))
     
