@@ -74,11 +74,6 @@ void SinkPacketCallback(Ptr<const Packet> packet) {
   }
 }
 
-// PHY Reception Callback (Debug)
-void PhyRxCallback(Ptr<const Packet> packet) {
-  // NS_LOG_UNCOND("DEBUG: PhyRx on Sink! UID=" << packet->GetUid());
-}
-
 // Callback for energy depletion - tracks network lifetime
 void EnergyDepletionCallback(Ptr<AquaSimEnergyModel> em) {
   if (!g_firstNodeDied) {
@@ -283,30 +278,15 @@ main(int argc, char *argv[])
   g_networkLifetime = Seconds(simStop);  // Default: simulation end time
   
 
+
   // Connect sink packet callback for PDR and delay
   Ptr<AquaSimNetDevice> sinkDev = DynamicCast<AquaSimNetDevice>(sinksCon.Get(0)->GetDevice(0));
   
-  // Try to connect to Routing "PacketReceived"
+  // Connect to Routing "PacketReceived"
   sinkDev->GetRouting()->TraceConnectWithoutContext(
     "PacketReceived",
     MakeCallback(&SinkPacketCallback)
   );
-  
-
-  // ALSO Connect to Mac "MacRx" to catch flooding packets that might not trigger Routing trace
-  // SinkPacketCallback deduplicates using UIDs, so this is safe
-  sinkDev->GetMac()->TraceConnectWithoutContext(
-    "MacRx",
-    MakeCallback(&SinkPacketCallback)
-  );
-
-  // DEBUG: Connect PhyRxEnd to check physical reception (collisions?)
-  sinkDev->GetPhy()->TraceConnectWithoutContext(
-    "PhyRxEnd", 
-    MakeCallback(&PhyRxCallback)
-  );
-
-
   
   // ==== END OF EDIT ====
 
