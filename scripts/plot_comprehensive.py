@@ -230,12 +230,39 @@ def create_plot(df, y_col, y_label, x_col, x_label, output_file, protocol_filter
     ax.set_xlabel(y_label, fontsize=13, fontweight='bold', labelpad=10)
     ax.set_ylabel(x_label, fontsize=13, fontweight='bold', labelpad=10)
     
-    # X-axis: parameter values (ALL VALUES, sorted)
+    # X-axis: parameter values (ALL VALUES, sorted) with CLEAR NUMERIC SCALE
     ax.set_xticks(x_positions)
-    ax.set_xticklabels([str(v) for v in y_values], fontsize=11, fontweight='bold')
     
-    # Y-axis: metric values (starts at 0)
+    # Format parameter values for display
+    formatted_labels = []
+    for v in y_values:
+        if isinstance(v, (int, float)):
+            if v >= 1000:
+                formatted_labels.append(f'{v/1000:.1f}k')
+            else:
+                formatted_labels.append(f'{v:.0f}')
+        else:
+            formatted_labels.append(str(v))
+    
+    ax.set_xticklabels(formatted_labels, fontsize=12, fontweight='bold')
+    
+    # Make X-axis scale HIGHLY VISIBLE
+    ax.tick_params(axis='x', which='major', length=12, width=2.5, 
+                   labelsize=12, pad=8, color='black')
+    ax.tick_params(axis='x', which='minor', length=6, width=1.5)
+    
+    # Set X-axis limits to show full scale with padding
+    if len(x_positions) > 0:
+        ax.set_xlim(left=x_positions[0] - 0.6, right=x_positions[-1] + 0.6)
+    
+    # Show grid on X-axis for scale reference
+    ax.grid(axis='x', alpha=0.3, linestyle='--', linewidth=1)
+    ax.grid(axis='y', alpha=0.3, linestyle='--', linewidth=1)
+    
+    # Y-axis: metric values (starts at 0) with proper scale
     ax.set_ylim(bottom=0)
+    ax.tick_params(axis='y', which='major', length=8, width=1.5)
+    ax.tick_params(axis='y', which='minor', length=4, width=1)
     
     # Title
     title = f"{y_label} vs {x_label}"
@@ -243,8 +270,7 @@ def create_plot(df, y_col, y_label, x_col, x_label, output_file, protocol_filter
         title += f" [{protocol_filter} only]"
     ax.set_title(title, fontsize=14, fontweight='bold', pad=15)
     
-    # Grid
-    ax.grid(axis='y', alpha=0.3, linestyle='--')
+    # Grid already set above
     ax.set_axisbelow(True)
     
     # Legend (only show once)
