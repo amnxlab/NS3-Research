@@ -44,8 +44,8 @@ static std::vector<double> g_packetDelays;  // Delays in ms
 static Time g_networkLifetime;
 static bool g_firstNodeDied = false;
 
-// Callback for sender - records packet send time
-void SenderTxCallback(Ptr<const Packet> packet) {
+// Callback for application TX - records packet send time
+void AppTxCallback(Ptr<const Packet> packet) {
   uint64_t uid = packet->GetUid();
   g_packetSendTime[uid] = Simulator::Now();
 }
@@ -276,12 +276,6 @@ main(int argc, char *argv[])
     MakeCallback(&SinkPacketCallback)
   );
   
-  // Connect sender TX callback for delay tracking
-  Ptr<AquaSimNetDevice> senderDevForTrace = DynamicCast<AquaSimNetDevice>(senderCon.Get(0)->GetDevice(0));
-  senderDevForTrace->TraceConnectWithoutContext(
-    "Tx",
-    MakeCallback(&SenderTxCallback)
-  );
   // ==== END OF EDIT ====
 
   mobility.Install(nodesCon);
@@ -303,6 +297,11 @@ main(int argc, char *argv[])
   ApplicationContainer apps = app.Install(senderCon);
   apps.Start(Seconds(0.5));
   apps.Stop(Seconds(simStop));
+  
+  // ==== EDITED: Connect TX callback for delay tracking ====
+  // Use the OnOff application's Tx trace to record send times
+  apps.Get(0)->TraceConnectWithoutContext("Tx", MakeCallback(&AppTxCallback));
+  // ==== END OF EDIT ====
 
   // ========== NO CHANGES - Original simulation run ==========
   std::cout << "\nRunning Simulation...\n";
