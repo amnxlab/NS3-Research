@@ -1,14 +1,28 @@
 #!/usr/bin/env python3
 """
-UWSN V2 - Comprehensive 5x5 Visualization Matrix
-=================================================
-Generates a 5x5 grid of bar charts:
-- Rows (5): Parameters (Nodes, Depth, VBF Width, Mobility, Range)
-- Columns (5): Metrics (Residual Energy, Energy Efficiency %, PDR, Avg Delay, Network Lifetime)
-- Bars: Protocols (VBF, DBR, Flooding) side-by-side with color legend OUTSIDE
+UWSN V2 - Comprehensive Plotting System
+========================================
+Generates bar chart plots for all Y-axis vs X-axis combinations.
+
+Y-axis variables (parameters):
+- Number of nodes
+- Depth variation
+- Width (pipe) - VBF only
+- Mobility
+- Communication range
+
+X-axis variables (metrics):
+- Residual energy
+- Energy efficiency (%)
+- PDR (Packet Delivery Ratio)
+- Average delay
+- Network lifetime
+
+Output: One plot per Y-axis vs X-axis combination = 25 plots
+Naming: [original_filename]_[y_variable]_vs_[x_variable].png
 
 Usage:
-    python3 plot_comprehensive.py results.csv --output-dir ./comprehensive_plots/
+    python3 plot_comprehensive.py results.csv --output-dir ./plots/
 """
 
 import pandas as pd
@@ -19,14 +33,14 @@ import sys
 from pathlib import Path
 from matplotlib.patches import Patch
 
-# Protocol colors (consistent across all charts)
+# Color-blind friendly colors (distinguishable in grayscale)
 PROTOCOL_COLORS = {
-    'VBF': '#8B0000',       # Dark Red
-    'DBR': '#4169E1',       # Royal Blue  
-    'flooding': '#228B22'   # Forest Green
+    'VBF': '#0072B2',       # Blue
+    'DBR': '#D55E00',       # Vermillion/Orange
+    'flooding': '#009E73'   # Bluish Green
 }
 
-# Protocol patterns for distinction
+# Hatching patterns for additional distinction
 PROTOCOL_HATCHES = {
     'VBF': '',              # Solid
     'DBR': '///',           # Diagonal lines
@@ -36,19 +50,28 @@ PROTOCOL_HATCHES = {
 # Set publication-quality defaults
 plt.rcParams.update({
     'font.family': 'serif',
-    'font.size': 10,
-    'axes.labelsize': 11,
-    'axes.titlesize': 12,
-    'xtick.labelsize': 9,
-    'ytick.labelsize': 9,
+    'font.size': 11,
+    'axes.labelsize': 12,
+    'axes.titlesize': 14,
+    'xtick.labelsize': 10,
+    'ytick.labelsize': 10,
     'legend.fontsize': 10,
     'figure.dpi': 150,
     'savefig.dpi': 300,
     'savefig.bbox': 'tight',
 })
 
-# Define the 5 metrics (columns)
-METRICS = [
+# Y-axis variables (parameters) - what we vary
+Y_AXIS_VARIABLES = [
+    ('nodes', 'Number of Nodes', None),           # (column_name, display_label, protocol_filter)
+    ('depth', 'Depth Variation', None),
+    ('vbfWidth', 'VBF Width (m)', 'VBF'),         # VBF only
+    ('mobility', 'Mobility Model', None),
+    ('range', 'Communication Range (m)', None)
+]
+
+# X-axis variables (metrics) - what we measure
+X_AXIS_VARIABLES = [
     ('total_residual_energy', 'Residual Energy (J)'),
     ('energy_efficiency_pct', 'Energy Efficiency (%)'),
     ('pdr_pct', 'PDR (%)'),
@@ -56,33 +79,23 @@ METRICS = [
     ('network_lifetime_s', 'Network Lifetime (s)')
 ]
 
-# Define the 5 parameters (rows)  
-# Note: vbfWidth only applies to VBF protocol
-PARAMETERS = [
-    ('nodes', 'Number of Nodes', None),           # applies to all protocols
-    ('depth', 'Depth Variation', None),           # applies to all protocols
-    ('vbfWidth', 'VBF Width (m)', 'VBF'),         # VBF only
-    ('mobility', 'Mobility Model', None),         # applies to all protocols
-    ('range', 'Communication Range (m)', None)    # applies to all protocols
-]
-
 
 def load_and_prepare_data(csv_file):
-    """Load CSV and compute derived metrics."""
+    """Load CSV and compute derived metrics including fixes for flooding."""
     try:
         df = pd.read_csv(csv_file)
         print(f"Loaded {len(df)} rows from {csv_file}")
         print(f"Protocols: {list(df['protocol'].unique())}")
         
-        # Compute derived metrics
-        # PDR as percentage (0-100)
+        # === FIX: Calculate PDR as percentage (0-100) ===
         if 'pdr' in df.columns:
             df['pdr_pct'] = df['pdr'] * 100
         else:
             df['pdr_pct'] = 0
         
-        # Energy efficiency as percentage
-        if 'sender_sent' in df.columns and 'sink_recv' in df.columns and 'total_consumed_energy' in df.columns:
+        # === FIX: Calculate Energy Efficiency for ALL protocols including flooding ===
+        # Energy Efficiency = (Packets Received / Total Energy Consumed) * 100
+        if 'sink_recv' in df.columns and 'total_consumed_energy' in df.columns:
             df['energy_efficiency_pct'] = np.where(
                 df['total_consumed_energy'] > 0,
                 (df['sink_recv'] / df['total_consumed_energy']) * 100,
@@ -105,6 +118,15 @@ def load_and_prepare_data(csv_file):
         else:
             df['depth'] = 'default'
         
+        # Print summary for verification
+        print("\nData Summary per Protocol:")
+        for protocol in sorted(df['protocol'].unique()):
+            pdata = df[df['protocol'] == protocol]
+            print(f"  {protocol}:")
+            print(f"    PDR: {pdata['pdr_pct'].mean():.2f}%")
+            print(f"    Energy Efficiency: {pdata['energy_efficiency_pct'].mean():.4f}%")
+            print(f"    Residual Energy: {pdata['total_residual_energy'].mean():.2f} J")
+        
         return df
         
     except Exception as e:
@@ -112,257 +134,278 @@ def load_and_prepare_data(csv_file):
         sys.exit(1)
 
 
-def format_xaxis_value(val, metric_col):
-    """Format numeric value for X-axis display."""
-    if val == 0:
-        return "0"
-    if 'pct' in metric_col or 'pdr' in metric_col.lower():
-        return f'{val:.1f}'
-    elif 'delay' in metric_col.lower():
-        if val > 1000:
-            return f'{val/1000:.1f}k'
-        return f'{val:.0f}'
-    elif 'lifetime' in metric_col.lower() or 'energy' in metric_col.lower():
-        if val > 100000:
-            return f'{val/1000:.0f}k'
-        elif val > 1000:
-            return f'{val/1000:.1f}k'
-        return f'{val:.0f}'
-    else:
-        return f'{val:.0f}'
-
-
-def create_bar_chart(ax, df, param_name, param_value, metric_col, metric_label, protocol_filter=None):
+def create_grouped_bar_plot(df, y_col, y_label, x_col, x_label, output_file, 
+                            protocol_filter=None, csv_basename=""):
     """
-    Create a single bar chart for one cell in the 5x5 grid.
-    Protocols are shown as grouped bars.
-    X-axis shows numeric values for each protocol.
+    Create a grouped bar chart for one Y-axis variable vs one X-axis variable.
     
     Args:
+        df: DataFrame with results
+        y_col: Y-axis variable column name (e.g., 'nodes')
+        y_label: Y-axis variable display label
+        x_col: X-axis variable column name (e.g., 'pdr_pct')
+        x_label: X-axis variable display label
+        output_file: Path to save the plot
         protocol_filter: If set, only show this protocol (e.g., 'VBF' for vbfWidth)
+        csv_basename: Base name of CSV file for title
     """
-    # Filter data for this parameter value
-    if param_name == 'depth':
-        data = df[df['depth'] == param_value]
+    # Get unique Y-axis values (e.g., nodes = 100, 150, 200)
+    if y_col == 'depth':
+        y_values = sorted(df['depth'].unique())
+    elif y_col in df.columns:
+        y_values = sorted(df[y_col].unique())
     else:
-        data = df[df[param_name] == param_value]
+        print(f"  ⚠ Column '{y_col}' not found, skipping...")
+        return False
     
-    if len(data) == 0:
-        ax.text(0.5, 0.5, 'No Data', ha='center', va='center', 
-                transform=ax.transAxes, fontsize=10, style='italic')
-        return
+    if not y_values:
+        print(f"  ⚠ No values for {y_col}, skipping...")
+        return False
     
-    # Get protocols (filter if needed)
+    # Get protocols to plot
     if protocol_filter:
-        # Only show the specific protocol for this parameter
-        protocols = [protocol_filter] if protocol_filter in data['protocol'].unique() else []
+        protocols = [protocol_filter] if protocol_filter in df['protocol'].unique() else []
         if not protocols:
-            ax.text(0.5, 0.5, f'VBF Only\n(N/A for others)', ha='center', va='center', 
-                    transform=ax.transAxes, fontsize=9, style='italic')
-            return
+            print(f"  ⚠ Protocol {protocol_filter} not found for {y_col}, skipping...")
+            return False
     else:
-        protocols = sorted(data['protocol'].unique())
+        protocols = sorted(df['protocol'].unique())
     
-    means = []
-    for protocol in protocols:
-        protocol_data = data[data['protocol'] == protocol]
-        mean_val = protocol_data[metric_col].mean()
-        means.append(mean_val)
+    # Create figure
+    fig, ax = plt.subplots(figsize=(12, 7))
     
-    # Create bar chart - protocols on X-axis
-    x_pos = np.arange(len(protocols))
-    width = 0.6
+    # Calculate bar positions
+    n_groups = len(y_values)
+    n_bars = len(protocols)
+    bar_width = 0.8 / n_bars
     
-    bars = []
-    for i, (protocol, mean_val) in enumerate(zip(protocols, means)):
-        bar = ax.bar(x_pos[i], mean_val, width=width,
-                     color=PROTOCOL_COLORS.get(protocol, 'gray'),
-                     hatch=PROTOCOL_HATCHES.get(protocol, ''),
-                     edgecolor='black', linewidth=1.2, alpha=0.9)
-        bars.append(bar[0])
+    # X positions for each group
+    x_positions = np.arange(n_groups)
     
-    # Configure X-axis with NUMERIC VALUES
-    ax.set_xticks(x_pos)
-    # Show numeric values on X-axis
-    x_labels = [format_xaxis_value(m, metric_col) for m in means]
-    ax.set_xticklabels(x_labels, fontsize=9, fontweight='bold')
+    # Plot bars for each protocol
+    for p_idx, protocol in enumerate(protocols):
+        means = []
+        stds = []
+        
+        for y_val in y_values:
+            # Filter data
+            if y_col == 'depth':
+                mask = (df['depth'] == y_val) & (df['protocol'] == protocol)
+            else:
+                mask = (df[y_col] == y_val) & (df['protocol'] == protocol)
+            
+            subset = df[mask]
+            
+            if len(subset) > 0:
+                means.append(subset[x_col].mean())
+                stds.append(subset[x_col].std() if len(subset) > 1 else 0)
+            else:
+                means.append(0)
+                stds.append(0)
+        
+        # Calculate bar position offset
+        offset = (p_idx - (n_bars - 1) / 2) * bar_width
+        
+        # Plot bars with error bars
+        bars = ax.bar(x_positions + offset, means, bar_width,
+                      yerr=stds if any(s > 0 for s in stds) else None,
+                      label=protocol,
+                      color=PROTOCOL_COLORS.get(protocol, 'gray'),
+                      hatch=PROTOCOL_HATCHES.get(protocol, ''),
+                      edgecolor='black', linewidth=1,
+                      capsize=3, alpha=0.9)
     
+    # Configure axes with SEPARATE, CLEAR labels
+    ax.set_xlabel(y_label, fontsize=13, fontweight='bold', labelpad=10)
+    ax.set_ylabel(x_label, fontsize=13, fontweight='bold', labelpad=10)
+    
+    # Set X-axis ticks to Y-variable values (sorted)
+    ax.set_xticks(x_positions)
+    ax.set_xticklabels([str(v) for v in y_values], fontsize=11, fontweight='bold')
+    
+    # Title
+    title = f"{y_label} vs {x_label}"
+    if protocol_filter:
+        title += f" [{protocol_filter} only]"
+    ax.set_title(title, fontsize=14, fontweight='bold', pad=15)
+    
+    # Grid
     ax.grid(axis='y', alpha=0.3, linestyle='--')
+    ax.set_axisbelow(True)
     
-    # Set Y-axis minimum to 0
+    # Y-axis starts at 0
     ax.set_ylim(bottom=0)
     
-    # Adjust Y limit to make room
-    max_val = max(means) if means else 1
-    if means:
-        ax.set_ylim(top=max_val * 1.1)
-
-
-def generate_5x5_matrix(df, output_dir):
-    """
-    Generate the 5x5 visualization matrix.
+    # Legend outside the plot (top right)
+    ax.legend(title='Protocol', loc='upper right', fontsize=10,
+              frameon=True, fancybox=True, shadow=True)
     
-    Rows: Parameters (Nodes, Depth, VBF Width, Mobility, Range)
-    Columns: Metrics (Residual Energy, Energy Eff %, PDR, Delay, Lifetime)
+    plt.tight_layout()
+    
+    # Save
+    plt.savefig(output_file, dpi=300, bbox_inches='tight', facecolor='white')
+    plt.close()
+    
+    return True
+
+
+def generate_all_plots(df, output_dir, csv_basename):
+    """
+    Generate all Y-axis vs X-axis combination plots.
+    
+    Total plots: 5 Y-variables × 5 X-variables = 25 plots
     """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     
     print(f"\n{'='*70}")
-    print(f"Generating 5x5 Visualization Matrix")
+    print(f"Generating All Plots")
     print(f"{'='*70}")
-    print(f"Rows (Parameters): {[p[1] for p in PARAMETERS]}")
-    print(f"Columns (Metrics): {[m[1] for m in METRICS]}")
+    print(f"Y-axis variables: {[y[1] for y in Y_AXIS_VARIABLES]}")
+    print(f"X-axis variables: {[x[1] for x in X_AXIS_VARIABLES]}")
+    print(f"Total plots to generate: {len(Y_AXIS_VARIABLES) * len(X_AXIS_VARIABLES)}")
+    print(f"Output directory: {output_dir}")
     print(f"{'='*70}\n")
     
-    # Get unique values for each parameter (use first/default value)
-    param_values = {}
-    for param_col, param_label, _ in PARAMETERS:
-        if param_col == 'depth':
-            values = sorted(df['depth'].unique())
-        elif param_col in df.columns:
-            values = sorted(df[param_col].unique())
-        else:
-            values = []
-        param_values[param_col] = values[0] if values else None
-        print(f"  {param_label}: {param_values[param_col]}")
+    plot_count = 0
+    success_count = 0
     
-    # Create the 5x5 figure with extra space for labels
-    fig, axes = plt.subplots(5, 5, figsize=(26, 22))
-    
-    # Fill in the grid
-    for row_idx, (param_col, param_label, protocol_filter) in enumerate(PARAMETERS):
-        param_value = param_values.get(param_col)
-        if param_value is None:
-            continue
+    # Generate one plot for each Y vs X combination
+    for y_col, y_label, protocol_filter in Y_AXIS_VARIABLES:
+        for x_col, x_label in X_AXIS_VARIABLES:
+            plot_count += 1
             
-        for col_idx, (metric_col, metric_label) in enumerate(METRICS):
+            # Generate filename: [csv_basename]_[y_var]_vs_[x_var].png
+            y_name = y_col.lower().replace(' ', '_')
+            x_name = x_col.lower().replace('_pct', '').replace('total_', '')
+            filename = f"{csv_basename}_{y_name}_vs_{x_name}.png"
+            output_file = output_dir / filename
+            
+            print(f"[{plot_count}/25] {y_label} vs {x_label}")
+            
+            success = create_grouped_bar_plot(
+                df, y_col, y_label, x_col, x_label,
+                output_file, protocol_filter, csv_basename
+            )
+            
+            if success:
+                print(f"  ✓ Saved: {filename}")
+                success_count += 1
+            else:
+                print(f"  ✗ Skipped")
+    
+    print(f"\n{'='*70}")
+    print(f"✓ Generated {success_count}/{plot_count} plots in {output_dir}/")
+    print(f"{'='*70}\n")
+    
+    # Also generate summary 5x5 matrix
+    generate_summary_matrix(df, output_dir, csv_basename)
+    
+    return success_count
+
+
+def generate_summary_matrix(df, output_dir, csv_basename):
+    """Generate a single 5x5 summary matrix figure."""
+    
+    print("Generating 5x5 summary matrix...")
+    
+    fig, axes = plt.subplots(5, 5, figsize=(28, 24))
+    
+    for row_idx, (y_col, y_label, protocol_filter) in enumerate(Y_AXIS_VARIABLES):
+        # Get Y values
+        if y_col == 'depth':
+            y_values = sorted(df['depth'].unique())
+        elif y_col in df.columns:
+            y_values = sorted(df[y_col].unique())
+        else:
+            y_values = []
+        
+        for col_idx, (x_col, x_label) in enumerate(X_AXIS_VARIABLES):
             ax = axes[row_idx, col_idx]
             
-            create_bar_chart(ax, df, param_col, param_value, metric_col, metric_label, protocol_filter)
+            if not y_values:
+                ax.text(0.5, 0.5, 'No Data', ha='center', va='center',
+                        transform=ax.transAxes, fontsize=10)
+                continue
             
-            # Add column headers (X-axis metrics) on first row ONLY
+            # Get protocols
+            if protocol_filter:
+                protocols = [protocol_filter] if protocol_filter in df['protocol'].unique() else []
+            else:
+                protocols = sorted(df['protocol'].unique())
+            
+            if not protocols:
+                ax.text(0.5, 0.5, 'N/A', ha='center', va='center',
+                        transform=ax.transAxes, fontsize=10)
+                continue
+            
+            # Plot grouped bars
+            n_groups = len(y_values)
+            n_bars = len(protocols)
+            bar_width = 0.8 / n_bars
+            x_positions = np.arange(n_groups)
+            
+            for p_idx, protocol in enumerate(protocols):
+                means = []
+                for y_val in y_values:
+                    if y_col == 'depth':
+                        mask = (df['depth'] == y_val) & (df['protocol'] == protocol)
+                    else:
+                        mask = (df[y_col] == y_val) & (df['protocol'] == protocol)
+                    subset = df[mask]
+                    means.append(subset[x_col].mean() if len(subset) > 0 else 0)
+                
+                offset = (p_idx - (n_bars - 1) / 2) * bar_width
+                ax.bar(x_positions + offset, means, bar_width,
+                       color=PROTOCOL_COLORS.get(protocol, 'gray'),
+                       hatch=PROTOCOL_HATCHES.get(protocol, ''),
+                       edgecolor='black', linewidth=0.5, alpha=0.9)
+            
+            # Axis labels
+            ax.set_xticks(x_positions)
+            ax.set_xticklabels([str(v) for v in y_values], fontsize=8)
+            ax.grid(axis='y', alpha=0.3, linestyle='--')
+            ax.set_ylim(bottom=0)
+            
+            # Column header (X-axis metric) - first row only
             if row_idx == 0:
-                ax.set_title(metric_label, fontsize=13, fontweight='bold', pad=12,
-                           color='darkblue')
+                ax.set_title(x_label, fontsize=11, fontweight='bold', pad=8)
             
-            # Add row labels (Y-axis parameters) on first column ONLY
+            # Row header (Y-axis parameter) - first column only
             if col_idx == 0:
-                label = f'{param_label}\n({param_value})'
+                label = y_label
                 if protocol_filter:
-                    label += f'\n[{protocol_filter} only]'
-                ax.set_ylabel(label, fontsize=11, fontweight='bold', 
-                            color='darkgreen', labelpad=10)
-    
-    # Add axis labels for the entire figure
-    fig.text(0.5, 0.99, 'X-AXIS: Performance Metrics', ha='center', fontsize=14, 
-             fontweight='bold', color='darkblue')
-    fig.text(0.01, 0.5, 'Y-AXIS: Network Parameters', va='center', rotation='vertical',
-             fontsize=14, fontweight='bold', color='darkgreen')
+                    label += f'\n[{protocol_filter}]'
+                ax.set_ylabel(label, fontsize=10, fontweight='bold')
     
     # Main title
-    fig.suptitle('UWSN Protocol Comparison Matrix (5×5)\nRows: Parameters | Columns: Metrics | Bars: Protocols', 
-                 fontsize=18, fontweight='bold', y=0.96)
+    fig.suptitle(f'UWSN Protocol Comparison Summary\n{csv_basename}',
+                 fontsize=16, fontweight='bold', y=0.98)
     
-    # Create legend OUTSIDE the plots (at the bottom)
+    # Legend at bottom
     legend_elements = [
-        Patch(facecolor=PROTOCOL_COLORS['VBF'], edgecolor='black', 
+        Patch(facecolor=PROTOCOL_COLORS['VBF'], edgecolor='black',
               hatch=PROTOCOL_HATCHES['VBF'], label='VBF'),
-        Patch(facecolor=PROTOCOL_COLORS['DBR'], edgecolor='black', 
+        Patch(facecolor=PROTOCOL_COLORS['DBR'], edgecolor='black',
               hatch=PROTOCOL_HATCHES['DBR'], label='DBR'),
-        Patch(facecolor=PROTOCOL_COLORS['flooding'], edgecolor='black', 
+        Patch(facecolor=PROTOCOL_COLORS['flooding'], edgecolor='black',
               hatch=PROTOCOL_HATCHES['flooding'], label='Flooding')
     ]
     
     fig.legend(handles=legend_elements, loc='lower center', ncol=3,
-               fontsize=14, frameon=True, fancybox=True, shadow=True,
-               bbox_to_anchor=(0.5, 0.01))
+               fontsize=12, frameon=True, bbox_to_anchor=(0.5, 0.01))
     
-    plt.tight_layout(rect=[0.03, 0.05, 1, 0.94])
+    plt.tight_layout(rect=[0, 0.04, 1, 0.96])
     
-    # Save figure
-    output_file = output_dir / 'summary_5x5_matrix.png'
+    output_file = output_dir / f"{csv_basename}_summary_5x5_matrix.png"
     plt.savefig(output_file, dpi=300, bbox_inches='tight', facecolor='white')
     plt.close()
-    print(f"\n✓ Saved: {output_file}")
-    
-    # Also generate individual parameter charts for detailed analysis
-    generate_individual_charts(df, output_dir, param_values)
-    
-    print(f"\n{'='*70}")
-    print(f"✓ All visualization saved to {output_dir}/")
-    print(f"{'='*70}\n")
-
-
-def generate_individual_charts(df, output_dir, param_values):
-    """Generate individual charts for each parameter with all its values."""
-    
-    for param_col, param_label, protocol_filter in PARAMETERS:
-        # Get all unique values for this parameter
-        if param_col == 'depth':
-            all_values = sorted(df['depth'].unique())
-        elif param_col in df.columns:
-            all_values = sorted(df[param_col].unique())
-        else:
-            continue
-        
-        if not all_values:
-            continue
-        
-        n_values = len(all_values)
-        
-        # Create figure: n_values rows × 5 columns
-        fig, axes = plt.subplots(n_values, 5, figsize=(24, 4 * n_values + 2))
-        
-        # Handle single row case
-        if n_values == 1:
-            axes = axes.reshape(1, -1)
-        
-        for row_idx, param_value in enumerate(all_values):
-            for col_idx, (metric_col, metric_label) in enumerate(METRICS):
-                ax = axes[row_idx, col_idx]
-                
-                create_bar_chart(ax, df, param_col, param_value, metric_col, metric_label, protocol_filter)
-                
-                # Column headers on first row
-                if row_idx == 0:
-                    ax.set_title(metric_label, fontsize=11, fontweight='bold', pad=10)
-                
-                # Row labels on first column
-                if col_idx == 0:
-                    label = f'{param_value}'
-                    if protocol_filter:
-                        label += f'\n[{protocol_filter} only]'
-                    ax.set_ylabel(label, fontsize=10, fontweight='bold')
-        
-        # Main title
-        fig.suptitle(f'Protocol Comparison by {param_label}', 
-                     fontsize=16, fontweight='bold', y=0.99)
-        
-        # Legend outside
-        legend_elements = [
-            Patch(facecolor=PROTOCOL_COLORS['VBF'], edgecolor='black',
-                  hatch=PROTOCOL_HATCHES['VBF'], label='VBF'),
-            Patch(facecolor=PROTOCOL_COLORS['DBR'], edgecolor='black',
-                  hatch=PROTOCOL_HATCHES['DBR'], label='DBR'),
-            Patch(facecolor=PROTOCOL_COLORS['flooding'], edgecolor='black',
-                  hatch=PROTOCOL_HATCHES['flooding'], label='Flooding')
-        ]
-        
-        fig.legend(handles=legend_elements, loc='lower center', ncol=3,
-                   fontsize=12, frameon=True, bbox_to_anchor=(0.5, 0.01))
-        
-        plt.tight_layout(rect=[0, 0.05, 1, 0.97])
-        
-        output_file = output_dir / f'matrix_{param_col}.png'
-        plt.savefig(output_file, dpi=300, bbox_inches='tight', facecolor='white')
-        plt.close()
-        print(f"✓ Saved: {output_file}")
+    print(f"✓ Saved: {output_file}")
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="UWSN V2 - 5x5 Visualization Matrix"
+        description="UWSN V2 - Comprehensive Plotting System"
     )
     parser.add_argument(
         "csv_file",
@@ -370,19 +413,23 @@ def main():
     )
     parser.add_argument(
         "--output-dir", "-o",
-        default="./comprehensive_plots",
-        help="Output directory for charts (default: ./comprehensive_plots)"
+        default="./plots",
+        help="Output directory for plots (default: ./plots)"
     )
     
     args = parser.parse_args()
     
+    # Get CSV basename for file naming
+    csv_basename = Path(args.csv_file).stem
+    
     # Load and prepare data
     df = load_and_prepare_data(args.csv_file)
     
-    # Generate visualization matrix
-    generate_5x5_matrix(df, args.output_dir)
+    # Generate all plots
+    generate_all_plots(df, args.output_dir, csv_basename)
     
-    print("Done! View charts in:", args.output_dir)
+    print(f"\nDone! All plots saved to: {args.output_dir}")
+    print(f"Naming convention: {csv_basename}_[y_variable]_vs_[x_variable].png")
 
 
 if __name__ == "__main__":
