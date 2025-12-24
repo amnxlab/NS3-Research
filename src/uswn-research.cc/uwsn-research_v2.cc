@@ -24,19 +24,56 @@
 #include <fstream>
 #include <random>
 #include <set>
+#include <map>
+#include <vector>
+#include <limits>
 
 using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE("UwsnProtocolComparisonV2");
 
-// ==== EDITED: Global set to track UNIQUE packet UIDs received at sink ====
-// This solves PDR > 100% by deduplicating packets that arrive via multiple paths
+// ==== EDITED: Global tracking for metrics ====
+// PDR tracking: Set of unique packet UIDs received at sink
 static std::set<uint64_t> g_receivedPacketUids;
 
-// Callback for sink routing - tracks unique packets only using packet UID
+// Delay tracking: Map packet UID to send time, and collect delays
+static std::map<uint64_t, Time> g_packetSendTime;
+static std::vector<double> g_packetDelays;  // Delays in ms
+
+// Network lifetime tracking: Time when first node dies
+static Time g_networkLifetime;
+static bool g_firstNodeDied = false;
+
+// Callback for sender - records packet send time
+void SenderTxCallback(Ptr<const Packet> packet) {
+  uint64_t uid = packet->GetUid();
+  g_packetSendTime[uid] = Simulator::Now();
+}
+
+// Callback for sink routing - tracks unique packets and calculates delay
 void SinkPacketCallback(Ptr<const Packet> packet) {
   uint64_t uid = packet->GetUid();
-  g_receivedPacketUids.insert(uid);  // std::set automatically deduplicates
+  
+  // Only process if this is a new unique packet
+  if (g_receivedPacketUids.find(uid) == g_receivedPacketUids.end()) {
+    g_receivedPacketUids.insert(uid);
+    
+    // Calculate delay if we have the send time
+    auto it = g_packetSendTime.find(uid);
+    if (it != g_packetSendTime.end()) {
+      Time delay = Simulator::Now() - it->second;
+      g_packetDelays.push_back(delay.GetMilliSeconds());
+    }
+  }
+}
+
+// Callback for energy depletion - tracks network lifetime
+void EnergyDepletionCallback(Ptr<AquaSimEnergyModel> em) {
+  if (!g_firstNodeDied) {
+    g_firstNodeDied = true;
+    g_networkLifetime = Simulator::Now();
+    NS_LOG_INFO("First node died at: " << g_networkLifetime.GetSeconds() << "s");
+  }
 }
 // ==== END OF EDIT ====
 
@@ -224,12 +261,26 @@ main(int argc, char *argv[])
   createDevice(sinksCon);
   createDevice(senderCon);
 
-  // ==== EDITED: Connect trace callback for unique packet tracking ====
-  g_receivedPacketUids.clear();  // Reset for each run
+  // ==== EDITED: Connect trace callbacks for metrics ====
+  // Reset all tracking variables for each run
+  g_receivedPacketUids.clear();
+  g_packetSendTime.clear();
+  g_packetDelays.clear();
+  g_firstNodeDied = false;
+  g_networkLifetime = Seconds(simStop);  // Default: simulation end time
+  
+  // Connect sink packet callback for PDR and delay
   Ptr<AquaSimNetDevice> sinkDev = DynamicCast<AquaSimNetDevice>(sinksCon.Get(0)->GetDevice(0));
   sinkDev->GetRouting()->TraceConnectWithoutContext(
     "PacketReceived",
     MakeCallback(&SinkPacketCallback)
+  );
+  
+  // Connect sender TX callback for delay tracking
+  Ptr<AquaSimNetDevice> senderDevForTrace = DynamicCast<AquaSimNetDevice>(senderCon.Get(0)->GetDevice(0));
+  senderDevForTrace->TraceConnectWithoutContext(
+    "Tx",
+    MakeCallback(&SenderTxCallback)
   );
   // ==== END OF EDIT ====
 
@@ -279,19 +330,56 @@ main(int argc, char *argv[])
 
   double totalInitialEnergy = 0.0;
   double totalResidualEnergy = 0.0;
+  double minResidualEnergy = std::numeric_limits<double>::max();
+  
   for (uint32_t i = 0; i < devices.GetN(); i++) {
     Ptr<AquaSimNetDevice> dev = DynamicCast<AquaSimNetDevice>(devices.Get(i));
     if (dev && dev->EnergyModel()) {
       Ptr<AquaSimEnergyModel> em = dev->EnergyModel();
       totalInitialEnergy += em->GetInitialEnergy();
-      totalResidualEnergy += em->GetEnergy();
+      double residual = em->GetEnergy();
+      totalResidualEnergy += residual;
+      
+      // Track minimum residual energy to estimate network lifetime
+      if (residual < minResidualEnergy) {
+        minResidualEnergy = residual;
+      }
+      
+      // Check if this node died (energy depleted)
+      if (residual <= 0 && !g_firstNodeDied) {
+        g_firstNodeDied = true;
+        g_networkLifetime = Seconds(simStop);  // Node died by end of simulation
+      }
     }
   }
   double totalConsumedEnergy = totalInitialEnergy - totalResidualEnergy;
+  
+  // ==== EDITED: Calculate average delay and network lifetime ====
+  double avgDelayMs = 0.0;
+  if (!g_packetDelays.empty()) {
+    double totalDelay = 0.0;
+    for (double d : g_packetDelays) {
+      totalDelay += d;
+    }
+    avgDelayMs = totalDelay / g_packetDelays.size();
+  }
+  
+  // Network lifetime: time until first node dies
+  // If no node died, estimate based on energy consumption rate
+  double networkLifetimeS = g_networkLifetime.GetSeconds();
+  if (!g_firstNodeDied && totalConsumedEnergy > 0) {
+    // Estimate: how long until the node with min residual dies?
+    double consumptionRate = totalConsumedEnergy / simStop;  // J/s
+    double perNodeRate = consumptionRate / devices.GetN();
+    if (perNodeRate > 0) {
+      networkLifetimeS = simStop + (minResidualEnergy / perNodeRate);
+    }
+  }
+  // ==== END OF EDIT ====
 
   Simulator::Destroy();
 
-  // ==== EDITED: Add the 5 parameters to CSV output ====
+  // ==== EDITED: Add all metrics to CSV output ====
   bool writeHeader = false;
   std::ifstream test(csvFile);
   if (!test.good()) writeHeader = true;
@@ -300,9 +388,10 @@ main(int argc, char *argv[])
   std::ofstream csv(csvFile, std::ios::app);
   if (writeHeader) {
     csv << "run,protocol,nodes,sinks,simStop,"
-        << "range,minDepth,maxDepth,vbfWidth,mobility,"  // 5 parameters added
+        << "range,minDepth,maxDepth,vbfWidth,mobility,"  // 5 parameters
         << "areaX,areaY,"
-        << "sender_sent,sink_recv,pdr,"  // PDR metrics added
+        << "sender_sent,sink_recv,pdr,"  // PDR metrics
+        << "avg_delay_ms,network_lifetime_s,"  // NEW: delay and lifetime
         << "initial_energy_per_node,tx_power,rx_power,idle_power,"
         << "total_initial_energy,total_consumed_energy,total_residual_energy\n";
   }
@@ -321,6 +410,8 @@ main(int argc, char *argv[])
       << senderSentPkts << ","  // Packets sent
       << sinkRecvPkts << ","    // Packets received
       << pdr << ","             // PDR (0.0 to 1.0)
+      << avgDelayMs << ","      // NEW: Average delay in ms
+      << networkLifetimeS << ","  // NEW: Network lifetime in seconds
       << initialEnergyJ << ","
       << txPowerW << ","
       << rxPowerW << ","
@@ -331,11 +422,14 @@ main(int argc, char *argv[])
   csv.close();
   // ==== END OF EDIT ====
 
-  std::cout << "\nResults appended to: " << csvFile << std::endl;
-  std::cout << "PDR: " << (pdr * 100.0) << "%" << std::endl;
-  std::cout << "Total Initial Energy: " << totalInitialEnergy << " J" << std::endl;
-  std::cout << "Total Consumed Energy: " << totalConsumedEnergy << " J" << std::endl;
-  std::cout << "Total Residual Energy: " << totalResidualEnergy << " J" << std::endl;
+  std::cout << "\n--- Results Summary ---\n";
+  std::cout << "PDR: " << (pdr * 100.0) << "%\n";
+  std::cout << "Average Delay: " << avgDelayMs << " ms\n";
+  std::cout << "Network Lifetime: " << networkLifetimeS << " s\n";
+  std::cout << "Total Initial Energy: " << totalInitialEnergy << " J\n";
+  std::cout << "Total Consumed Energy: " << totalConsumedEnergy << " J\n";
+  std::cout << "Total Residual Energy: " << totalResidualEnergy << " J\n";
+  std::cout << "\nResults appended to: " << csvFile << "\n";
   std::cout << "fin.\n";
 
   return 0;
