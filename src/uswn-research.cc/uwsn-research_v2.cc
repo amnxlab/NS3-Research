@@ -98,6 +98,13 @@ main(int argc, char *argv[])
   
   cmd.AddValue("csvFile", "Output CSV file", csvFile);
   cmd.Parse(argc, argv);
+  
+  // ==== EDITED: Handle common typo VPF -> VBF ====
+  if (protocol == "VPF") {
+    std::cout << "Note: Protocol 'VPF' corrected to 'VBF'\n";
+    protocol = "VBF";
+  }
+  // ==== END OF EDIT ====
   // ==== END OF EDIT ====
 
   RngSeedManager::SetRun(runNumber);
