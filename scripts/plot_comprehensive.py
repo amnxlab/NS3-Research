@@ -227,8 +227,8 @@ def generate_5x5_matrix(df, output_dir):
         param_values[param_col] = values[0] if values else None
         print(f"  {param_label}: {param_values[param_col]}")
     
-    # Create the 5x5 figure
-    fig, axes = plt.subplots(5, 5, figsize=(24, 20))
+    # Create the 5x5 figure with extra space for labels
+    fig, axes = plt.subplots(5, 5, figsize=(26, 22))
     
     # Fill in the grid
     for row_idx, (param_col, param_label, protocol_filter) in enumerate(PARAMETERS):
@@ -241,20 +241,28 @@ def generate_5x5_matrix(df, output_dir):
             
             create_bar_chart(ax, df, param_col, param_value, metric_col, metric_label, protocol_filter)
             
-            # Add column headers (metric names) on first row
+            # Add column headers (X-axis metrics) on first row ONLY
             if row_idx == 0:
-                ax.set_title(metric_label, fontsize=12, fontweight='bold', pad=10)
+                ax.set_title(metric_label, fontsize=13, fontweight='bold', pad=12,
+                           color='darkblue')
             
-            # Add row labels (parameter names + values) on first column
+            # Add row labels (Y-axis parameters) on first column ONLY
             if col_idx == 0:
                 label = f'{param_label}\n({param_value})'
                 if protocol_filter:
                     label += f'\n[{protocol_filter} only]'
-                ax.set_ylabel(label, fontsize=10, fontweight='bold')
+                ax.set_ylabel(label, fontsize=11, fontweight='bold', 
+                            color='darkgreen', labelpad=10)
+    
+    # Add axis labels for the entire figure
+    fig.text(0.5, 0.99, 'X-AXIS: Performance Metrics', ha='center', fontsize=14, 
+             fontweight='bold', color='darkblue')
+    fig.text(0.01, 0.5, 'Y-AXIS: Network Parameters', va='center', rotation='vertical',
+             fontsize=14, fontweight='bold', color='darkgreen')
     
     # Main title
-    fig.suptitle('UWSN Protocol Comparison\n5 Parameters × 5 Metrics', 
-                 fontsize=18, fontweight='bold', y=0.98)
+    fig.suptitle('UWSN Protocol Comparison Matrix (5×5)\nRows: Parameters | Columns: Metrics | Bars: Protocols', 
+                 fontsize=18, fontweight='bold', y=0.96)
     
     # Create legend OUTSIDE the plots (at the bottom)
     legend_elements = [
@@ -270,7 +278,7 @@ def generate_5x5_matrix(df, output_dir):
                fontsize=14, frameon=True, fancybox=True, shadow=True,
                bbox_to_anchor=(0.5, 0.01))
     
-    plt.tight_layout(rect=[0, 0.05, 1, 0.96])
+    plt.tight_layout(rect=[0.03, 0.05, 1, 0.94])
     
     # Save figure
     output_file = output_dir / 'summary_5x5_matrix.png'
