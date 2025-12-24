@@ -206,9 +206,15 @@ def run_single_experiment(params):
             timeout=sim_time + 60
         )
         
+
+
+
         if result.returncode == 0:
             # Parse PDR from output
             pdr_match = re.search(r'PDR:\s+([\d.]+)%', result.stdout)
+
+
+
             sent_match = re.search(r'Sender Sent:\s+(\d+)', result.stdout)
             recv_match = re.search(r'Sink Received:\s+(\d+)', result.stdout)
             

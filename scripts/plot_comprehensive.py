@@ -2,11 +2,8 @@
 """
 UWSN V2 - Comprehensive Plotting System
 ========================================
-Y-axis (vertical): Parameters (nodes, depth, width, mobility, range)
-X-axis (horizontal): Metrics (residual energy, energy eff %, PDR, delay, lifetime)
-
-Each plot: Y-axis parameter values vs X-axis metric values
-Grouped bars: All protocols compared for each Y-value
+Generates vertical grouped bar charts for simulation metrics.
+Features: separate axes, value labels on bars, flood protocol support.
 
 Usage:
     python3 plot_comprehensive.py results.csv --output-dir ./plots/
@@ -17,348 +14,246 @@ import matplotlib.pyplot as plt
 import numpy as np
 import argparse
 import sys
+import os
 from pathlib import Path
-from matplotlib.patches import Patch
 
-# Color-blind friendly colors
-PROTOCOL_COLORS = {
-    'VBF': '#0072B2',       # Blue
-    'DBR': '#D55E00',       # Vermillion/Orange
-    'flooding': '#009E73'   # Bluish Green
-}
+# Constants
+PACKET_SIZE_BYTES = 40
+PACKET_SIZE_BITS = PACKET_SIZE_BYTES * 8
 
-PROTOCOL_HATCHES = {
-    'VBF': '',
-    'DBR': '///',
-    'flooding': 'xxx'
-}
-
-plt.rcParams.update({
-    'font.family': 'serif',
-    'font.size': 11,
-    'axes.labelsize': 12,
-    'axes.titlesize': 14,
-    'xtick.labelsize': 10,
-    'ytick.labelsize': 10,
-    'legend.fontsize': 10,
-    'figure.dpi': 150,
-    'savefig.dpi': 300,
-    'savefig.bbox': 'tight',
-})
-
-# Y-AXIS (vertical): Parameters we vary
-Y_AXIS_PARAMETERS = [
-    ('nodes', 'Number of Nodes', None),
-    ('depth', 'Depth Variation', None),
-    ('vbfWidth', 'VBF Width (m)', 'VBF'),  # VBF only
-    ('mobility', 'Mobility Model', None),
-    ('range', 'Communication Range (m)', None)
-]
-
-# X-AXIS (horizontal): Metrics we measure
-X_AXIS_METRICS = [
-    ('total_residual_energy', 'Residual Energy (J)'),
-    ('energy_efficiency_pct', 'Energy Efficiency (%)'),
-    ('pdr_pct', 'PDR (%)'),
-    ('avg_delay_ms', 'Average Delay (ms)'),
-    ('network_lifetime_s', 'Network Lifetime (s)')
-]
-
-
-def load_and_prepare_data(csv_file):
-    """Load CSV and compute ALL metrics including flooding fixes."""
-    try:
-        df = pd.read_csv(csv_file)
-        print(f"Loaded {len(df)} rows from {csv_file}")
-        print(f"Protocols: {list(df['protocol'].unique())}")
+def calculate_metrics(df):
+    """Calculates additional metrics required for plotting."""
+    
+    # 1. ODR (Offered Data Rate) in kbps
+    # Formula: (sender_sent * 40 * 8) / (simStop * 1000)
+    if 'sender_sent' in df.columns and 'simStop' in df.columns:
+        df['odr_kbps'] = (df['sender_sent'] * PACKET_SIZE_BITS) / (df['simStop'] * 1000)
         
-        # === FIX: PDR as percentage ===
-        if 'pdr' in df.columns:
-            df['pdr_pct'] = df['pdr'] * 100
+    # 2. Energy Efficiency (%)
+    # Formula: (Total Residual / Total Initial) * 100
+    if 'total_residual_energy' in df.columns and 'total_initial_energy' in df.columns:
+        df['energy_efficiency_percent'] = (df['total_residual_energy'] / df['total_initial_energy']) * 100
+
+    # 3. PDR Percentage
+    if 'pdr' in df.columns:
+        if df['pdr'].max() <= 1.0:
+            df['pdr_percent'] = df['pdr'] * 100
         else:
-            df['pdr_pct'] = 0
-        
-        # === FIX: Energy Efficiency for ALL protocols including flooding ===
-        # Energy Efficiency = (Packets Received / Total Energy Consumed) * 100
-        if 'sink_recv' in df.columns and 'total_consumed_energy' in df.columns:
-            df['energy_efficiency_pct'] = np.where(
-                df['total_consumed_energy'] > 0,
-                (df['sink_recv'] / df['total_consumed_energy']) * 100,
-                0
-            )
-        else:
-            df['energy_efficiency_pct'] = 0
-        
-        # === FIX: ODR (Offered Data Rate) for flooding ===
-        # ODR = (Packets Sent / Simulation Time) * Packet Size
-        if 'sender_sent' in df.columns and 'simStop' in df.columns:
-            # Assuming packet size ~40 bytes (from simulation)
-            packet_size_bytes = 40
-            df['odr'] = (df['sender_sent'] / df['simStop']) * packet_size_bytes * 8  # bits per second
-        else:
-            df['odr'] = 0
-        
-        # Ensure other metrics exist
-        if 'avg_delay_ms' not in df.columns:
-            df['avg_delay_ms'] = 0
-        if 'network_lifetime_s' not in df.columns:
-            df['network_lifetime_s'] = 0
-        if 'total_residual_energy' not in df.columns:
-            df['total_residual_energy'] = 0
-        
-        # Create depth label
-        if 'minDepth' in df.columns and 'maxDepth' in df.columns:
-            df['depth'] = df.apply(lambda r: f"{r['minDepth']:.0f}-{r['maxDepth']:.0f}m", axis=1)
-        else:
-            df['depth'] = 'default'
-        
-        # Print summary
-        print("\nData Summary per Protocol:")
-        for protocol in sorted(df['protocol'].unique()):
-            pdata = df[df['protocol'] == protocol]
-            print(f"  {protocol}:")
-            print(f"    PDR: {pdata['pdr_pct'].mean():.2f}%")
-            print(f"    Energy Efficiency: {pdata['energy_efficiency_pct'].mean():.4f}%")
-            print(f"    ODR: {pdata['odr'].mean():.2f} bps")
-            print(f"    Residual Energy: {pdata['total_residual_energy'].mean():.2f} J")
-        
-        return df
-        
-    except Exception as e:
-        print(f"ERROR loading {csv_file}: {e}")
-        sys.exit(1)
+            df['pdr_percent'] = df['pdr']
+            
+    # Ensure other metrics exist or fill with 0
+    cols_to_check = ['avg_delay_ms', 'network_lifetime_s', 'total_residual_energy']
+    for col in cols_to_check:
+        if col not in df.columns:
+            df[col] = 0
+            
+    return df
 
 
-def create_plot(df, y_col, y_label, x_col, x_label, output_file, protocol_filter=None, csv_basename=""):
+def generate_grouped_bar_plot(df, x_var, y_var, output_dir, result_filename_stem):
     """
-    Create ONE plot: Y-axis parameter vs X-axis metric.
-    
-    Y-axis (vertical): Parameter values (e.g., nodes = 100, 150, 200) - ALL VALUES PLOTTED
-    X-axis (horizontal): Metric values (sorted in ascending order)
-    Bars: Protocols grouped side-by-side for each Y-value
+    Generates a VERTICAL grouped bar chart.
+    x_var: The independent variable (e.g., 'nodes'). categories on X-axis.
+    y_var: The dependent variable (e.g., 'pdr_percent'). Height of bars.
     """
-    # Get ALL Y-axis parameter values (e.g., nodes = 100, 150, 200)
-    if y_col == 'depth':
-        y_values = sorted(df['depth'].unique())
-    elif y_col in df.columns:
-        y_values = sorted(df[y_col].unique())
-    else:
-        print(f"  ⚠ Column '{y_col}' not found")
-        return False
     
-    if not y_values:
-        print(f"  ⚠ No values for {y_col}")
-        return False
+    # Labels
+    label_map = {
+        'nodes': 'Number of Nodes',
+        'maxDepth': 'Depth Variation (m)',
+        'vbfWidth': 'Pipe Width (m)',
+        'mobility': 'Mobility Model',
+        'range': 'Communication Range (m)',
+        'total_residual_energy': 'Residual Energy (J)',
+        'energy_efficiency_percent': 'Energy Efficiency (%)',
+        'pdr_percent': 'PDR (%)',
+        'avg_delay_ms': 'Average Delay (ms)',
+        'network_lifetime_s': 'Network Lifetime (s)',
+        'odr_kbps': 'ODR (kbps)'
+    }
     
-    # Get protocols
-    if protocol_filter:
-        protocols = [protocol_filter] if protocol_filter in df['protocol'].unique() else []
-        if not protocols:
-            return False
-    else:
-        protocols = sorted(df['protocol'].unique())
+    xlabel = label_map.get(x_var, x_var)
+    ylabel = label_map.get(y_var, y_var)
     
-    # For each Y-value, collect X-axis metric values
-    # Group by Y-value and protocol, calculate means
-    plot_data = {}
-    for y_val in y_values:
-        plot_data[y_val] = {}
-        for protocol in protocols:
-            if y_col == 'depth':
-                mask = (df['depth'] == y_val) & (df['protocol'] == protocol)
+    # Prepare data
+    if x_var not in df.columns:
+        return
+        
+    x_categories = sorted(df[x_var].unique())
+    protocols = sorted(df['protocol'].unique())
+    
+    # Skip if no categories
+    if not x_categories:
+        return
+
+    # Setup plot
+    fig, ax = plt.subplots(figsize=(10, 6)) # Moderately sized
+    
+    # Dimensions
+    n_groups = len(x_categories)
+    n_bars = len(protocols)
+    
+    # Bar width and positions
+    total_group_width = 0.8
+    bar_width = total_group_width / n_bars
+    indices = np.arange(n_groups)
+    
+    # Colors suitable for publications (CB-safe)
+    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+    
+    max_height = 0
+    
+    for i, protocol in enumerate(protocols):
+        means = []
+        stds = []
+        
+        for x_val in x_categories:
+            subset = df[(df['protocol'] == protocol) & (df[x_var] == x_val)]
+            if y_var in subset.columns and not subset.empty:
+                val = subset[y_var].mean()
+                std = subset[y_var].std()
+                if np.isnan(std): std = 0
+                means.append(val)
+                stds.append(std)
             else:
-                mask = (df[y_col] == y_val) & (df['protocol'] == protocol)
-            subset = df[mask]
-            
-            if len(subset) > 0:
-                mean_val = subset[x_col].mean()
-                std_val = subset[x_col].std() if len(subset) > 1 else 0
-                plot_data[y_val][protocol] = (mean_val, std_val)
-            else:
-                plot_data[y_val][protocol] = (0, 0)
+                means.append(0)
+                stds.append(0)
+        
+        # Track max height for margins
+        if means:
+            # Check max of mean + std to account for error bars
+            current_cluster_max = max([m + s for m, s in zip(means, stds)])
+            if current_cluster_max > max_height:
+                max_height = current_cluster_max
+        
+        # Position for this protocol's bars
+        # Center the group on 'indices'
+        # Group starts at indices - total_group_width/2
+        # Bar i starts at: group_start + i*bar_width
+        x_pos = indices - (total_group_width / 2) + (i * bar_width) + (bar_width / 2)
+        
+        # Draw bars
+        bars = ax.bar(x_pos, means, width=bar_width, label=protocol, 
+                      yerr=stds, capsize=3, color=colors[i % len(colors)], alpha=0.9, edgecolor='black', linewidth=0.7)
+        
+        # Add values on top of bars
+        for bar, mean, std in zip(bars, means, stds):
+            height = bar.get_height()
+            if height > 0: # Only label if bar exists
+                # Format: "Mean" (std is shown via error bar, adding text might clutter)
+                # If user wants clear readable fonts, maybe just Mean is enough, or compact Mean±Std?
+                # Let's do compact: "95.2" or "95.2\n±1.2" if space permits.
+                # Given "font doesn't override", simple is better.
+                # Let's stick to Mean, with Std in error bar.
+                # label_text = f"{mean:.1f}" 
+                # User asked for "Show results above each chart, write them, and write the error value as well" previously.
+                # So we must include error in text? "write the error value as well".
+                # Okay, use newline format but ensure small font.
+                
+                label_text = f"{mean:.1f}\n±{std:.1f}"
+                
+                y_pos = height + std + (max_height * 0.02) # Start above error bar
+                
+                ax.text(bar.get_x() + bar.get_width()/2., y_pos,
+                        label_text,
+                        ha='center', va='bottom', fontsize=8, fontweight='normal', color='black',
+                        bbox=dict(facecolor='white', alpha=0.7, pad=0.5, edgecolor='none')) # Background to prevent overlap with grid lines
+
+    # Styling
+    ax.set_xticks(indices)
     
-    # Collect all X-axis values and sort them
-    all_x_values = []
-    for y_val in y_values:
-        for protocol in protocols:
-            if protocol in plot_data[y_val]:
-                val, _ = plot_data[y_val][protocol]
-                if val > 0:
-                    all_x_values.append(val)
+    # Format X labels (add units if needed)
+    x_labels_formatted = []
+    for val in x_categories:
+        str_val = str(val)
+        if x_var == 'range' or x_var == 'maxDepth' or x_var == 'vbfWidth':
+             # Append 'm' if not present
+             if not str_val.endswith('m'):
+                 str_val += " m"
+        x_labels_formatted.append(str_val)
+        
+    ax.set_xticklabels(x_labels_formatted, fontsize=11, fontweight='bold')
     
-    if not all_x_values:
-        print(f"  ⚠ No data for {y_label} vs {x_label}")
-        return False
+    ax.set_xlabel(xlabel, fontweight='bold', fontsize=12, labelpad=10)
+    ax.set_ylabel(ylabel, fontweight='bold', fontsize=12, labelpad=10)
+    ax.set_title(f"{xlabel} vs {ylabel}", fontweight='bold', fontsize=13, pad=15)
     
-    # Sort X-axis values in ascending order
-    sorted_x_positions = sorted(set(all_x_values))
-    n_x_positions = len(sorted_x_positions)
+    # Legend
+    ax.legend(title="Protocol", loc='best', fontsize=10, frameon=True, framealpha=0.9)
     
-    # Create figure - STANDARD VERTICAL bars
-    # X-axis: Parameter values (sorted) - ALL VALUES PLOTTED
-    # Y-axis: Metric values
-    fig, ax = plt.subplots(figsize=(12, 8))
+    # Grid
+    ax.grid(axis='y', linestyle='--', alpha=0.4)
+    ax.set_axisbelow(True) # Grid behind bars
     
-    # X-axis positions for parameter values (sorted)
-    x_positions = np.arange(len(y_values))
-    
-    # For each parameter value, plot bars for each protocol
-    n_protocols = len(protocols)
-    bar_width = 0.8 / n_protocols
-    
-    # Plot vertical bars: for each Y-value, for each protocol
-    for y_idx, y_val in enumerate(y_values):
-        for p_idx, protocol in enumerate(protocols):
-            if protocol not in plot_data[y_val]:
-                continue
-            
-            mean_val, std_val = plot_data[y_val][protocol]
-            
-            # Calculate bar offset
-            offset = (p_idx - (n_protocols - 1) / 2) * bar_width
-            
-            # Plot vertical bar
-            bars = ax.bar(x_positions[y_idx] + offset, mean_val, bar_width,
-                         yerr=std_val if std_val > 0 else None,
-                         label=protocol if y_idx == 0 else "",
-                         color=PROTOCOL_COLORS.get(protocol, 'gray'),
-                         hatch=PROTOCOL_HATCHES.get(protocol, ''),
-                         edgecolor='black', linewidth=1,
-                         capsize=3, alpha=0.9)
-    
-    # Configure axes with SEPARATE labels (NO SHARED LABELS)
-    ax.set_xlabel(y_label, fontsize=13, fontweight='bold', labelpad=10)
-    ax.set_ylabel(x_label, fontsize=13, fontweight='bold', labelpad=10)
-    
-    # X-axis: parameter values (ALL VALUES, sorted) with CLEAR NUMERIC SCALE
-    ax.set_xticks(x_positions)
-    
-    # Format parameter values for display
-    formatted_labels = []
-    for v in y_values:
-        if isinstance(v, (int, float)):
-            if v >= 1000:
-                formatted_labels.append(f'{v/1000:.1f}k')
-            else:
-                formatted_labels.append(f'{v:.0f}')
-        else:
-            formatted_labels.append(str(v))
-    
-    ax.set_xticklabels(formatted_labels, fontsize=12, fontweight='bold')
-    
-    # Make X-axis scale HIGHLY VISIBLE
-    ax.tick_params(axis='x', which='major', length=12, width=2.5, 
-                   labelsize=12, pad=8, color='black')
-    ax.tick_params(axis='x', which='minor', length=6, width=1.5)
-    
-    # Set X-axis limits to show full scale with padding
-    if len(x_positions) > 0:
-        ax.set_xlim(left=x_positions[0] - 0.6, right=x_positions[-1] + 0.6)
-    
-    # Show grid on X-axis for scale reference
-    ax.grid(axis='x', alpha=0.3, linestyle='--', linewidth=1)
-    ax.grid(axis='y', alpha=0.3, linestyle='--', linewidth=1)
-    
-    # Y-axis: metric values (starts at 0) with proper scale
+    # Cleanup axes
     ax.set_ylim(bottom=0)
-    ax.tick_params(axis='y', which='major', length=8, width=1.5)
-    ax.tick_params(axis='y', which='minor', length=4, width=1)
+    # Increase top margin significantly to accommodate labels
+    ax.set_ylim(top=max_height * 1.25) 
     
-    # Title
-    title = f"{y_label} vs {x_label}"
-    if protocol_filter:
-        title += f" [{protocol_filter} only]"
-    ax.set_title(title, fontsize=14, fontweight='bold', pad=15)
-    
-    # Grid already set above
-    ax.set_axisbelow(True)
-    
-    # Legend (only show once)
-    ax.legend(title='Protocol', loc='upper right', fontsize=10,
-              frameon=True, fancybox=True, shadow=True)
+    # Output filename
+    desc = f"{x_var}_vs_{y_var}".replace("percent", "").replace("kbps", "").strip("_")
+    filename = f"{result_filename_stem}_{desc}.png"
+    output_path = os.path.join(output_dir, filename)
     
     plt.tight_layout()
-    
-    # Save with proper naming: [csv_basename]_[y_var]_vs_[x_var].png
-    plt.savefig(output_file, dpi=300, bbox_inches='tight', facecolor='white')
+    plt.savefig(output_path, dpi=300)
     plt.close()
-    
-    return True
-
-
-def generate_all_plots(df, output_dir, csv_basename):
-    """Generate all Y-axis vs X-axis plots (25 total)."""
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    
-    print(f"\n{'='*70}")
-    print(f"Generating All Plots")
-    print(f"{'='*70}")
-    print(f"Y-axis (Parameters): {[y[1] for y in Y_AXIS_PARAMETERS]}")
-    print(f"X-axis (Metrics): {[x[1] for x in X_AXIS_METRICS]}")
-    print(f"Total: {len(Y_AXIS_PARAMETERS)} × {len(X_AXIS_METRICS)} = {len(Y_AXIS_PARAMETERS) * len(X_AXIS_METRICS)} plots")
-    print(f"Output: {output_dir}")
-    print(f"{'='*70}\n")
-    
-    plot_count = 0
-    success_count = 0
-    
-    for y_col, y_label, protocol_filter in Y_AXIS_PARAMETERS:
-        for x_col, x_label in X_AXIS_METRICS:
-            plot_count += 1
-            
-            # File naming: [csv_basename]_[y_var]_vs_[x_var].png
-            y_name = y_col.lower().replace(' ', '_')
-            x_name = x_col.lower().replace('_pct', '').replace('total_', '').replace('avg_', '')
-            filename = f"{csv_basename}_{y_name}_vs_{x_name}.png"
-            output_file = output_dir / filename
-            
-            print(f"[{plot_count}/25] {y_label} vs {x_label}")
-            
-            success = create_plot(df, y_col, y_label, x_col, x_label,
-                                output_file, protocol_filter, csv_basename)
-            
-            if success:
-                print(f"  ✓ Saved: {filename}")
-                success_count += 1
-            else:
-                print(f"  ✗ Skipped")
-    
-    print(f"\n{'='*70}")
-    print(f"✓ Generated {success_count}/{plot_count} plots")
-    print(f"{'='*70}\n")
-    
-    return success_count
+    print(f"  ✓ Saved: {filename}")
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="UWSN V2 - Comprehensive Plotting System"
-    )
-    parser.add_argument(
-        "csv_file",
-        help="Path to the results CSV file"
-    )
-    parser.add_argument(
-        "--output-dir", "-o",
-        default="./plots",
-        help="Output directory for plots (default: ./plots)"
-    )
-    
+    parser = argparse.ArgumentParser(description="Generate plots for UWSN simulation.")
+    parser.add_argument("csv_file", help="Path to results CSV")
+    parser.add_argument("--output-dir", help="Directory to save plots")
     args = parser.parse_args()
     
-    # Get CSV basename for file naming
-    csv_basename = Path(args.csv_file).stem
+    csv_file = args.csv_file
+    output_dir = args.output_dir if args.output_dir else os.path.join(os.path.dirname(csv_file), "graphs")
     
-    # Load data
-    df = load_and_prepare_data(args.csv_file)
+    # Create output directory
+    os.makedirs(output_dir, exist_ok=True)
     
-    # Generate plots
-    generate_all_plots(df, args.output_dir, csv_basename)
+    print(f"Processing: {csv_file}")
+    try:
+        df = pd.read_csv(csv_file)
+    except Exception as e:
+        print(f"Error reading CSV: {e}")
+        sys.exit(1)
     
-    print(f"Done! All plots saved to: {args.output_dir}")
-    print(f"Naming: {csv_basename}_[y_variable]_vs_[x_variable].png")
+    # Calculate Metrics
+    df = calculate_metrics(df)
+    
+    # Define Analysis Matrix
+    # X Variables (Independent)
+    x_vars = ['nodes', 'maxDepth', 'vbfWidth', 'mobility', 'range']
+    
+    # Y Variables (Dependent)
+    y_vars = ['total_residual_energy', 'energy_efficiency_percent', 'pdr_percent', 
+              'avg_delay_ms', 'network_lifetime_s', 'odr_kbps']
+    
+    # Filter active X vars (must have variation)
+    varying_x = [x for x in x_vars if x in df.columns and df[x].nunique() > 1]
+    
+    # Force 'nodes' if available and nothing else varies (common user request case)
+    if not varying_x and 'nodes' in df.columns:
+        varying_x = ['nodes']
+    # If still nothing, fallback to first available parameter
+    if not varying_x:
+         varying_x = [x for x in x_vars if x in df.columns][:1]
 
+    print(f"Plotting against Independent Variables (X-axis): {varying_x}")
+    print(f"Output Directory: {output_dir}")
+    
+    result_filename_stem = Path(csv_file).stem
+    
+    count = 0
+    for x_var in varying_x:
+        for y_var in y_vars:
+            if y_var in df.columns:
+                generate_grouped_bar_plot(df, x_var, y_var, output_dir, result_filename_stem)
+                count += 1
+                
+    print(f"\nGenerated {count} plots.")
 
 if __name__ == "__main__":
     main()
