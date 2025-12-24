@@ -19,12 +19,9 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 
-# Import analysis and plotting functions
+# Import analysis functions
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-from scipy import stats
 
 # Auto-detect paths (same as run_experiments_v2.py)
 def find_ns3_installation():
@@ -148,18 +145,6 @@ DEFAULT_MAX_DEPTH = 400.0
 DEFAULT_VBF_WIDTH = 100.0
 DEFAULT_MOBILITY = "static"
 
-# Color scheme for protocols
-PROTOCOL_COLORS = {
-    'VBF': '#2ecc71',
-    'DBR': '#3498db',
-    'flooding': '#e74c3c'
-}
-
-PROTOCOL_MARKERS = {
-    'VBF': 'o',
-    'DBR': 's',
-    'flooding': '^'
-}
 
 
 def setup_simulation():
@@ -349,146 +334,40 @@ def analyze_results(csv_file):
     return df
 
 
-def plot_results(df, output_dir):
-    """Generate all plots."""
+def plot_results(csv_file, output_dir):
+    """Generate comprehensive visualization matrix using plot_comprehensive.py."""
     print(f"\n{'='*70}")
-    print(f"STEP 3: GENERATING PLOTS")
+    print(f"STEP 3: GENERATING COMPREHENSIVE VISUALIZATION MATRIX")
     print(f"{'='*70}\n")
     
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    plt.style.use('seaborn-v0_8-whitegrid')
-    sns.set_palette("husl")
+    # Call the comprehensive plotting script
+    plot_script = SCRIPT_DIR / "plot_comprehensive.py"
     
-    # Plot 1: PDR Comparison
-    print("Generating PDR comparison...")
-    fig, ax = plt.subplots(figsize=(10, 6))
+    if not plot_script.exists():
+        print(f"ERROR: Comprehensive plotting script not found: {plot_script}")
+        return False
     
-    protocols = sorted(df['protocol'].unique())
-    pdr_data = df.groupby('protocol')['pdr'].agg(['mean', 'std']).reset_index()
-    pdr_data['mean'] *= 100  # Convert to percentage
-    pdr_data['std'] *= 100
+    print(f"Running comprehensive visualization script...")
+    print(f"  Input: {csv_file}")
+    print(f"  Output: {output_dir}\n")
     
-    x_pos = np.arange(len(protocols))
-    bars = ax.bar(x_pos, pdr_data['mean'],
-                  yerr=pdr_data['std'],
-                  color=[PROTOCOL_COLORS.get(p, 'gray') for p in protocols],
-                  capsize=5, alpha=0.8, edgecolor='black', linewidth=1.2)
+    result = subprocess.run(
+        [sys.executable, str(plot_script), str(csv_file), "--output-dir", str(output_dir)],
+        capture_output=True,
+        text=True
+    )
     
-    ax.set_xlabel('Protocol', fontsize=12, fontweight='bold')
-    ax.set_ylabel('Packet Delivery Ratio (%)', fontsize=12, fontweight='bold')
-    ax.set_title('PDR Comparison', fontsize=14, fontweight='bold')
-    ax.set_xticks(x_pos)
-    ax.set_xticklabels(protocols, fontsize=11)
-    ax.set_ylim(0, 100)
-    ax.grid(axis='y', alpha=0.3)
-    
-    for bar in bars:
-        height = bar.get_height()
-        ax.text(bar.get_x() + bar.get_width()/2., height,
-                f'{height:.1f}%', ha='center', va='bottom', fontweight='bold')
-    
-    plt.tight_layout()
-    output_file = output_dir / 'v2_pdr_comparison.png'
-    plt.savefig(output_file, dpi=300, bbox_inches='tight')
-    plt.close()
-    print(f"  ✓ Saved: {output_file}")
-    
-    # Plot 2: Energy Comparison
-    print("Generating energy comparison...")
-    fig, ax = plt.subplots(figsize=(10, 6))
-    
-    protocols = sorted(df['protocol'].unique())
-    energy_data = df.groupby('protocol')['total_consumed_energy'].agg(['mean', 'std']).reset_index()
-    
-    x_pos = np.arange(len(protocols))
-    bars = ax.bar(x_pos, energy_data['mean'],
-                  yerr=energy_data['std'],
-                  color=[PROTOCOL_COLORS.get(p, 'gray') for p in protocols],
-                  capsize=5, alpha=0.8, edgecolor='black', linewidth=1.2)
-    
-    ax.set_xlabel('Protocol', fontsize=12, fontweight='bold')
-    ax.set_ylabel('Total Energy Consumed (J)', fontsize=12, fontweight='bold')
-    ax.set_title('Energy Consumption Comparison', fontsize=14, fontweight='bold')
-    ax.set_xticks(x_pos)
-    ax.set_xticklabels(protocols, fontsize=11)
-    ax.grid(axis='y', alpha=0.3)
-    
-    for bar in bars:
-        height = bar.get_height()
-        ax.text(bar.get_x() + bar.get_width()/2., height,
-                f'{height:.1f}J', ha='center', va='bottom', fontweight='bold')
-    
-    plt.tight_layout()
-    output_file = output_dir / 'v2_energy_comparison.png'
-    plt.savefig(output_file, dpi=300, bbox_inches='tight')
-    plt.close()
-    print(f"  ✓ Saved: {output_file}")
-    
-    # Plot 2: Energy Distribution (Box Plot)
-    print("Generating energy distribution...")
-    fig, ax = plt.subplots(figsize=(10, 6))
-    
-    sns.boxplot(data=df, x='protocol', y='total_consumed_energy', ax=ax,
-                palette=PROTOCOL_COLORS, linewidth=1.5)
-    
-    ax.set_xlabel('Protocol', fontsize=12, fontweight='bold')
-    ax.set_ylabel('Total Energy Consumed (J)', fontsize=12, fontweight='bold')
-    ax.set_title('Energy Consumption Distribution', fontsize=14, fontweight='bold')
-    ax.grid(axis='y', alpha=0.3)
-    
-    plt.tight_layout()
-    output_file = output_dir / 'v2_energy_distribution.png'
-    plt.savefig(output_file, dpi=300, bbox_inches='tight')
-    plt.close()
-    print(f"  ✓ Saved: {output_file}")
-    
-    # Plot 3: Summary Dashboard
-    if len(df['nodes'].unique()) > 1:
-        print("Generating scalability analysis...")
-        fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-        
-        # Energy vs Nodes
-        ax = axes[0]
-        for protocol in sorted(df['protocol'].unique()):
-            data = df[df['protocol'] == protocol].groupby('nodes')['total_consumed_energy'].agg(['mean', 'std']).reset_index()
-            ax.errorbar(data['nodes'], data['mean'], yerr=data['std'],
-                       label=protocol, marker=PROTOCOL_MARKERS.get(protocol, 'o'),
-                       color=PROTOCOL_COLORS.get(protocol), capsize=4, linewidth=2.5,
-                       markersize=10, markeredgewidth=1.5, markeredgecolor='white')
-        
-        ax.set_xlabel('Number of Nodes', fontsize=12, fontweight='bold')
-        ax.set_ylabel('Total Energy (J)', fontsize=12, fontweight='bold')
-        ax.set_title('Energy Scalability', fontsize=13, fontweight='bold')
-        ax.legend(title='Protocol', fontsize=11, title_fontsize=11)
-        ax.grid(True, alpha=0.3, linestyle='--')
-        
-        # Residual Energy
-        ax = axes[1]
-        for protocol in sorted(df['protocol'].unique()):
-            data = df[df['protocol'] == protocol].groupby('nodes')['total_residual_energy'].agg(['mean', 'std']).reset_index()
-            ax.errorbar(data['nodes'], data['mean'], yerr=data['std'],
-                       label=protocol, marker=PROTOCOL_MARKERS.get(protocol, 'o'),
-                       color=PROTOCOL_COLORS.get(protocol), capsize=4, linewidth=2.5,
-                       markersize=10, markeredgewidth=1.5, markeredgecolor='white')
-        
-        ax.set_xlabel('Number of Nodes', fontsize=12, fontweight='bold')
-        ax.set_ylabel('Residual Energy (J)', fontsize=12, fontweight='bold')
-        ax.set_title('Remaining Energy', fontsize=13, fontweight='bold')
-        ax.legend(title='Protocol', fontsize=11, title_fontsize=11)
-        ax.grid(True, alpha=0.3, linestyle='--')
-        
-        plt.suptitle('UWSN Protocol Comparison - Scalability Analysis', 
-                     fontsize=16, fontweight='bold', y=1.02)
-        plt.tight_layout()
-        
-        output_file = output_dir / 'v2_scalability_analysis.png'
-        plt.savefig(output_file, dpi=300, bbox_inches='tight')
-        plt.close()
-        print(f"  ✓ Saved: {output_file}")
-    
-    print(f"\n✓ All plots saved to: {output_dir}\n")
+    if result.returncode == 0:
+        print(result.stdout)
+        print(f"\n✓ Comprehensive visualization matrix saved to: {output_dir}\n")
+        return True
+    else:
+        print(f"ERROR: Comprehensive plotting failed!")
+        print(result.stderr)
+        return False
 
 
 def main():
@@ -585,16 +464,21 @@ def main():
     else:
         df = pd.read_csv(csv_file)
     
-    # Step 3: Generate plots
+    # Step 3: Generate comprehensive visualization matrix
+    # Use same name as CSV file for the graphs folder
     if not args.skip_plots:
-        plot_results(df, GRAPHS_DIR)
+        csv_basename = Path(csv_file).stem  # e.g., "uwsn_v2_results_20251224_204424"
+        graphs_output_dir = GRAPHS_DIR / csv_basename
+        plot_results(csv_file, graphs_output_dir)
+    else:
+        graphs_output_dir = GRAPHS_DIR
     
     # Final summary
     print(f"\n{'='*70}")
     print(f"✅ COMPLETE WORKFLOW FINISHED!")
     print(f"{'='*70}")
     print(f"Results: {csv_file}")
-    print(f"Graphs: {GRAPHS_DIR}")
+    print(f"Graphs: {graphs_output_dir}")
     print(f"{'='*70}\n")
 
 
