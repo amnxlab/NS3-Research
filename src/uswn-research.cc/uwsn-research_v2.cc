@@ -50,21 +50,33 @@ void AppTxCallback(Ptr<const Packet> packet) {
   g_packetSendTime[uid] = Simulator::Now();
 }
 
+
+
+
 // Callback for sink routing - tracks unique packets and calculates delay
 void SinkPacketCallback(Ptr<const Packet> packet) {
   uint64_t uid = packet->GetUid();
+  // NS_LOG_UNCOND("DEBUG: SinkPacketCallback called! UID=" << uid);
   
   // Only process if this is a new unique packet
   if (g_receivedPacketUids.find(uid) == g_receivedPacketUids.end()) {
     g_receivedPacketUids.insert(uid);
+    // NS_LOG_UNCOND("DEBUG: New Unique Packet! UID=" << uid);
     
     // Calculate delay if we have the send time
+
+
     auto it = g_packetSendTime.find(uid);
     if (it != g_packetSendTime.end()) {
       Time delay = Simulator::Now() - it->second;
       g_packetDelays.push_back(delay.GetMilliSeconds());
     }
   }
+}
+
+// PHY Reception Callback (Debug)
+void PhyRxCallback(Ptr<const Packet> packet) {
+  // NS_LOG_UNCOND("DEBUG: PhyRx on Sink! UID=" << packet->GetUid());
 }
 
 // Callback for energy depletion - tracks network lifetime
@@ -76,6 +88,7 @@ void EnergyDepletionCallback(Ptr<AquaSimEnergyModel> em) {
   }
 }
 // ==== END OF EDIT ====
+
 
 int
 main(int argc, char *argv[])
@@ -269,12 +282,31 @@ main(int argc, char *argv[])
   g_firstNodeDied = false;
   g_networkLifetime = Seconds(simStop);  // Default: simulation end time
   
+
   // Connect sink packet callback for PDR and delay
   Ptr<AquaSimNetDevice> sinkDev = DynamicCast<AquaSimNetDevice>(sinksCon.Get(0)->GetDevice(0));
+  
+  // Try to connect to Routing "PacketReceived"
   sinkDev->GetRouting()->TraceConnectWithoutContext(
     "PacketReceived",
     MakeCallback(&SinkPacketCallback)
   );
+  
+
+  // ALSO Connect to Mac "MacRx" to catch flooding packets that might not trigger Routing trace
+  // SinkPacketCallback deduplicates using UIDs, so this is safe
+  sinkDev->GetMac()->TraceConnectWithoutContext(
+    "MacRx",
+    MakeCallback(&SinkPacketCallback)
+  );
+
+  // DEBUG: Connect PhyRxEnd to check physical reception (collisions?)
+  sinkDev->GetPhy()->TraceConnectWithoutContext(
+    "PhyRxEnd", 
+    MakeCallback(&PhyRxCallback)
+  );
+
+
   
   // ==== END OF EDIT ====
 

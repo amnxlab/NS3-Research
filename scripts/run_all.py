@@ -246,28 +246,38 @@ def run_experiments(args, csv_file):
     if not args.skip_build:
         setup_simulation()
     
+
     experiments = []
     for protocol in args.protocols:
         for node_count in args.nodes:
-            for run in range(1, args.runs + 1):
-                experiments.append((
-                    protocol,
-                    node_count,
-                    run,
-                    args.simtime,
-                    args.range,
-                    args.min_depth,
-                    args.max_depth,
-                    args.vbf_width,
-                    args.mobility,
-                    csv_file
-                ))
+            for comm_range in args.range:
+                for max_depth in args.max_depth:
+                    for vbf_width in args.vbf_width:
+                        for mobility in args.mobility:
+                            for run in range(1, args.runs + 1):
+                                experiments.append((
+                                    protocol,
+                                    node_count,
+                                    run,
+                                    args.simtime,
+                                    comm_range,
+                                    args.min_depth,
+                                    max_depth,
+                                    vbf_width,
+                                    mobility,
+                                    csv_file
+                                ))
     
     total_experiments = len(experiments)
     print(f"Total experiments: {total_experiments}")
     print(f"Protocols: {args.protocols}")
     print(f"Node counts: {args.nodes}")
+    print(f"Ranges: {args.range}")
+    print(f"Max Depths: {args.max_depth}")
+    print(f"VBF Widths: {args.vbf_width}")
+    print(f"Mobility: {args.mobility}")
     print(f"Runs per config: {args.runs}\n")
+
     
     start_time = time.time()
     completed = 0
@@ -396,25 +406,26 @@ def main():
         "--simtime", type=int, default=DEFAULT_SIM_TIME,
         help=f"Simulation time in seconds (default: {DEFAULT_SIM_TIME})"
     )
+
     parser.add_argument(
-        "--range", type=float, default=DEFAULT_RANGE,
-        help=f"Communication range in meters (default: {DEFAULT_RANGE})"
+        "--range", nargs='+', type=float, default=[DEFAULT_RANGE],
+        help=f"Communication range(s) in meters (default: {DEFAULT_RANGE})"
     )
     parser.add_argument(
         "--min-depth", type=float, default=DEFAULT_MIN_DEPTH,
         help=f"Minimum depth in meters (default: {DEFAULT_MIN_DEPTH})"
     )
     parser.add_argument(
-        "--max-depth", type=float, default=DEFAULT_MAX_DEPTH,
-        help=f"Maximum depth in meters (default: {DEFAULT_MAX_DEPTH})"
+        "--max-depth", nargs='+', type=float, default=[DEFAULT_MAX_DEPTH],
+        help=f"Maximum depth(s) in meters (default: {DEFAULT_MAX_DEPTH})"
     )
     parser.add_argument(
-        "--vbf-width", type=float, default=DEFAULT_VBF_WIDTH,
-        help=f"VBF routing pipe radius/width in meters (default: {DEFAULT_VBF_WIDTH})"
+        "--vbf-width", nargs='+', type=float, default=[DEFAULT_VBF_WIDTH],
+        help=f"VBF routing pipe radius/width(s) in meters (default: {DEFAULT_VBF_WIDTH})"
     )
     parser.add_argument(
-        "--mobility", choices=["static", "random"], default=DEFAULT_MOBILITY,
-        help=f"Mobility model (default: {DEFAULT_MOBILITY})"
+        "--mobility", nargs='+', choices=["static", "random"], default=[DEFAULT_MOBILITY],
+        help=f"Mobility model(s) (default: {DEFAULT_MOBILITY})"
     )
     parser.add_argument(
         "--skip-build", action="store_true",
@@ -434,6 +445,7 @@ def main():
     )
     
     args = parser.parse_args()
+
     
     # Create directories
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
