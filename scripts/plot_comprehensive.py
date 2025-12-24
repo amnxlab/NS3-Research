@@ -78,9 +78,16 @@ def generate_grouped_bar_plot(df, x_var, y_var, output_dir, result_filename_stem
     # Prepare data
     if x_var not in df.columns:
         return
+    
+    # Filter: vbfWidth only applies to VBF protocol
+    plot_df = df.copy()
+    if x_var == 'vbfWidth':
+        plot_df = df[df['protocol'] == 'VBF']
+        if plot_df.empty:
+            return
         
-    x_categories = sorted(df[x_var].unique())
-    protocols = sorted(df['protocol'].unique())
+    x_categories = sorted(plot_df[x_var].unique())
+    protocols = sorted(plot_df['protocol'].unique())
     
     # Skip if no categories
     if not x_categories:
@@ -108,7 +115,7 @@ def generate_grouped_bar_plot(df, x_var, y_var, output_dir, result_filename_stem
         stds = []
         
         for x_val in x_categories:
-            subset = df[(df['protocol'] == protocol) & (df[x_var] == x_val)]
+            subset = plot_df[(plot_df['protocol'] == protocol) & (plot_df[x_var] == x_val)]
             if y_var in subset.columns and not subset.empty:
                 val = subset[y_var].mean()
                 std = subset[y_var].std()
