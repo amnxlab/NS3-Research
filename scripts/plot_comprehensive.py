@@ -70,21 +70,20 @@ def generate_grouped_bar_plot(df, x_var, y_var, output_dir, result_filename_stem
     y_var: The dependent variable (e.g., 'pdr_percent'). Height of bars.
     """
     
-    # Labels
+    # Labels - Clear, complete titles
     label_map = {
         'nodes': 'Number of Nodes',
-        'maxDepth': 'Depth Variation (m)',
-        'vbfWidth': 'Pipe Width (m)',
+        'maxDepth': 'Maximum Depth (m)',
+        'vbfWidth': 'VBF Pipe Width (m)',
         'mobility': 'Mobility Model',
         'range': 'Communication Range (m)',
-        'avg_residual_energy': 'Avg Residual Energy per Node (J)',
-        'energy_efficiency_percent': 'Efficiency (%)',
-        'pdr_percent': 'PDR (%)',
-        'avg_delay_ms': 'Average Delay (ms)',
-        'network_lifetime_s': 'Network Lifetime (s)',
-        'areaX': 'Area Width (X) (m)',
-        'areaY': 'Area Length (Y) (m)',
-
+        'avg_residual_energy': 'Average Residual Energy per Node (J)',
+        'energy_efficiency_percent': 'Energy Efficiency (%)',
+        'pdr_percent': 'Packet Delivery Ratio - PDR (%)',
+        'avg_delay_ms': 'Average End-to-End Delay (ms)',
+        'network_lifetime_s': 'Network Lifetime (seconds)',
+        'areaX': 'Simulation Area Width X (m)',
+        'areaY': 'Simulation Area Length Y (m)',
     }
     
     xlabel = label_map.get(x_var, x_var)

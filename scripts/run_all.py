@@ -612,27 +612,26 @@ def main():
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     GRAPHS_DIR.mkdir(parents=True, exist_ok=True)
     
-    # Generate output filename
+    # Generate output filename - one file per session with all runs
     if args.output:
         csv_file = Path(args.output)
     else:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        csv_file = RESULTS_DIR / f"uwsn_v2_results_{timestamp}.csv"
+        csv_file = RESULTS_DIR / f"results_{timestamp}.csv"
     
     csv_file = str(csv_file.resolve())
     
     print(f"\n{'='*70}")
     print(f"UWSN PROTOCOL COMPARISON V2 - COMPLETE WORKFLOW")
     print(f"{'='*70}")
-    print(f"Output: {csv_file}")
+    print(f"Results: {csv_file}")
     print(f"Graphs: {GRAPHS_DIR}")
     print(f"{'='*70}\n")
     
-    # Step 1: Run experiments
+    # Step 1: Run experiments (all runs saved to csv_file)
     traces = run_experiments(args, csv_file)
     if not traces:
         print("Warning: No traces collected (or experiments failed).")
-        # Proceeding might fail, but let's try analysis if CSV exists? 
         pass
 
     # Step 2: Analyze results
