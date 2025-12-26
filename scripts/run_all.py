@@ -143,7 +143,7 @@ DEFAULT_RANGE = 100
 DEFAULT_MIN_DEPTH = 0.0
 DEFAULT_MAX_DEPTH = 400.0
 DEFAULT_VBF_WIDTH = 100.0
-DEFAULT_MOBILITY = "static"
+DEFAULT_MOBILITY = "random"
 
 
 
@@ -424,7 +424,7 @@ def main():
         help=f"VBF routing pipe radius/width(s) in meters (default: {DEFAULT_VBF_WIDTH})"
     )
     parser.add_argument(
-        "--mobility", nargs='+', choices=["static", "random"], default=[DEFAULT_MOBILITY],
+        "--mobility", nargs='+', choices=["fixed", "random"], default=[DEFAULT_MOBILITY],
         help=f"Mobility model(s) (default: {DEFAULT_MOBILITY})"
     )
     parser.add_argument(

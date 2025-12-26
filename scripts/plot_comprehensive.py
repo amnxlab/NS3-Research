@@ -24,16 +24,15 @@ PACKET_SIZE_BITS = PACKET_SIZE_BYTES * 8
 def calculate_metrics(df):
     """Calculates additional metrics required for plotting."""
     
-    # 1. ODR (Offered Data Rate) in kbps
-    # Formula: (sender_sent * 40 * 8) / (simStop * 1000)
-    if 'sender_sent' in df.columns and 'simStop' in df.columns:
-        df['odr_kbps'] = (df['sender_sent'] * PACKET_SIZE_BITS) / (df['simStop'] * 1000)
-        
-    # 2. Energy Efficiency (%)
-    # Formula: (Total Residual / Total Initial) * 100
-    if 'total_residual_energy' in df.columns and 'total_initial_energy' in df.columns:
-        df['energy_efficiency_percent'] = (df['total_residual_energy'] / df['total_initial_energy']) * 100
 
+    # 2. Energy Efficiency (%)
+    # Prioritize pre-calculated value from CSV (new logic)
+    # Fallback to (Residual / Initial) * 100 (old logic) if missing
+    if 'energy_efficiency_percent' not in df.columns:
+        if 'total_residual_energy' in df.columns and 'total_initial_energy' in df.columns:
+             df['energy_efficiency_percent'] = (df['total_residual_energy'] / df['total_initial_energy']) * 100
+             print("Warning: Using legacy Energy Efficiency calculation (Residual/Initial)")
+    
     # 3. PDR Percentage
     if 'pdr' in df.columns:
         if df['pdr'].max() <= 1.0:
@@ -69,7 +68,7 @@ def generate_grouped_bar_plot(df, x_var, y_var, output_dir, result_filename_stem
         'pdr_percent': 'PDR (%)',
         'avg_delay_ms': 'Average Delay (ms)',
         'network_lifetime_s': 'Network Lifetime (s)',
-        'odr_kbps': 'ODR (kbps)'
+
     }
     
     xlabel = label_map.get(x_var, x_var)
@@ -236,7 +235,7 @@ def main():
     
     # Y Variables (Dependent)
     y_vars = ['total_residual_energy', 'energy_efficiency_percent', 'pdr_percent', 
-              'avg_delay_ms', 'network_lifetime_s', 'odr_kbps']
+              'avg_delay_ms', 'network_lifetime_s']
     
     # Filter active X vars (must have variation)
     varying_x = [x for x in x_vars if x in df.columns and df[x].nunique() > 1]
