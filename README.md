@@ -78,23 +78,85 @@ NS3-Research/
 
 ---
 
-## 🛠️ Manual CLI Usage
+## 🛠️ CLI Reference
 
-If you prefer the terminal:
+All GUI functionality is available via command line:
+
+### Basic Usage
 
 ```bash
-# Basic run
-python3 scripts/run_all.py --protocols VBF DBR --nodes 100 --runs 15
+# Run with default settings (all 3 protocols, 100 nodes, 30 runs)
+python3 scripts/run_all.py
 
-# Parameter sweep
-python3 scripts/run_all.py --protocols VBF DBR \
-  --nodes 50 100 200 \
-  --simtime 500 1000 \
-  --initial-energy 100 500
+# Specify protocols
+python3 scripts/run_all.py --protocols VBF DBR flooding
 
-# Full options
-python3 scripts/run_all.py --help
+# Quick test (fewer runs)
+python3 scripts/run_all.py --protocols VBF --nodes 100 --runs 5 --skip-build
 ```
+
+### Parameter Sweeps
+
+Add multiple values to run all combinations automatically:
+
+```bash
+# Sweep node counts
+python3 scripts/run_all.py --protocols VBF DBR --nodes 50 100 150 200
+
+# Sweep multiple parameters
+python3 scripts/run_all.py --protocols VBF DBR flooding \
+  --nodes 100 200 \
+  --range 100 150 \
+  --initial-energy 100 500 1000
+
+# Full parameter sweep example
+python3 scripts/run_all.py \
+  --protocols VBF DBR \
+  --nodes 100 200 \
+  --simtime 500 1000 \
+  --range 100 150 \
+  --area-x 400 600 \
+  --area-y 400 600 \
+  --min-z 0 \
+  --max-z 400 500 \
+  --vbf-width 100 150 \
+  --initial-energy 500 \
+  --mobility random \
+  --runs 15
+```
+
+### All CLI Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--protocols` | VBF DBR flooding | Protocols to test |
+| `--nodes` | 100 | Node count(s) - supports multiple values |
+| `--runs` | 30 | Iterations per configuration |
+| `--simtime` | 1000 | Simulation time in seconds |
+| `--range` | 100 | Communication range in meters |
+| `--initial-energy` | 500.0 | Initial battery energy in Joules |
+| `--area-x` | 400.0 | Network X dimension (meters) |
+| `--area-y` | 400.0 | Network Y dimension (meters) |
+| `--min-z` | 0.0 | Minimum depth (meters) |
+| `--max-z` | 400.0 | Maximum depth (meters) |
+| `--vbf-width` | 100.0 | VBF routing pipe width (meters) |
+| `--mobility` | random | Mobility model: `random` or `fixed` |
+| `--output` | auto | Custom output CSV file path |
+| `--skip-build` | false | Skip NS-3 rebuild (use existing) |
+| `--skip-analysis` | false | Skip result analysis step |
+| `--skip-plots` | false | Skip graph generation |
+
+### Output Files
+
+Results are saved to:
+- **CSV Data**: `results/uwsn_v2_results_YYYYMMDD_HHMMSS.csv`
+- **Plots**: `scripts/graphs/uwsn_v2_results_YYYYMMDD_HHMMSS/`
+  - `PDR_by_Node_Count.png`
+  - `Average_Delay_by_Node_Count.png`
+  - `Energy_Efficiency_by_Node_Count.png`
+  - `Residual_Energy_by_Node_Count.png`
+  - `Network_Lifetime_by_Node_Count.png`
+  - `Network_Lifetime_Alive_Nodes.png`
 
 ---
 
@@ -109,10 +171,18 @@ python3 scripts/run_all.py --help
 
 ## 📊 Generated Plots
 
-- `alive_nodes_vs_time.png` - Network lifetime visualization
-- `network_lifetime.png` - Comparative lifetime analysis
-- `pdr_vs_nodes.png` - Scalability analysis
-- `v2_energy_comparison.png` - Energy consumption comparison
+Each simulation run creates a folder with these graphs:
+
+| File | Description |
+|------|-------------|
+| `PDR_by_Node_Count.png` | Packet Delivery Ratio comparison |
+| `Average_Delay_by_Node_Count.png` | End-to-end latency analysis |
+| `Energy_Efficiency_by_Node_Count.png` | Energy efficiency percentage |
+| `Residual_Energy_by_Node_Count.png` | Average residual energy per node |
+| `Network_Lifetime_by_Node_Count.png` | Network lifetime comparison |
+| `Network_Lifetime_Alive_Nodes.png` | Alive nodes over time |
+
+> **Note**: When sweeping parameters like `--range` or `--area-x`, files are named accordingly (e.g., `PDR_by_Range.png`).
 
 ---
 
