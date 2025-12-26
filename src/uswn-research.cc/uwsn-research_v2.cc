@@ -80,10 +80,48 @@ void EnergyDepletionCallback(Ptr<AquaSimEnergyModel> em) {
     g_firstNodeDied = true;
     g_networkLifetime = Simulator::Now();
     NS_LOG_INFO("First node died at: " << g_networkLifetime.GetSeconds() << "s");
+    NS_LOG_INFO("First node died at: " << g_networkLifetime.GetSeconds() << "s");
   }
 }
 // ==== END OF EDIT ====
 
+// ==== NEW: Network Lifetime Trace (Phase 1) ====
+std::string g_lifetimeTraceFile = "";
+
+void TraceAliveNodeCount(NodeContainer &nodes, double interval) {
+  uint32_t aliveCount = 0;
+  uint32_t totalNodes = nodes.GetN();
+  
+  for (uint32_t i = 0; i < totalNodes; ++i) {
+    Ptr<Node> node = nodes.Get(i);
+    Ptr<AquaSimNetDevice> dev = DynamicCast<AquaSimNetDevice>(node->GetDevice(0));
+    if (dev && dev->EnergyModel() && dev->EnergyModel()->GetEnergy() > 0) {
+      aliveCount++;
+    }
+  }
+
+  // Detect death internally (for Network Lifetime metric)
+  if (aliveCount < totalNodes) {
+      if (!g_firstNodeDied) {
+          g_firstNodeDied = true;
+          g_networkLifetime = Simulator::Now();
+          NS_LOG_INFO("First node died at: " << g_networkLifetime.GetSeconds() << "s");
+      }
+  }
+
+  // Write trace data (continues throughout entire simulation)
+  if (!g_lifetimeTraceFile.empty()) {
+    std::ofstream out(g_lifetimeTraceFile.c_str(), std::ios::app);
+    out << Simulator::Now().GetSeconds() << "," << aliveCount << "\n";
+    out.close();
+  }
+
+  // Continue tracing for full simulation duration
+  Simulator::Schedule(Seconds(interval), &TraceAliveNodeCount, nodes, interval);
+}
+
+
+// ==== END NEW ====
 
 int
 main(int argc, char *argv[])
@@ -100,7 +138,7 @@ main(int argc, char *argv[])
   double minDepth = 0.0;           // Parameter 3a: Depth Variation (min)
   double maxDepth = 400.0;         // Parameter 3b: Depth Variation (max)
   double vbfWidth = 100.0;         // Parameter 4: VBF Routing Pipe Radius
-  std::string mobilityModel = "static";  // Parameter 5: Mobility Model
+  std::string mobilityModel = "random";  // Parameter 5: Mobility Model
   // ==== END OF EDIT ====
   
   std::string protocol = "VBF";
@@ -135,13 +173,25 @@ main(int argc, char *argv[])
   cmd.AddValue("minDepth", "Minimum depth (meters)", minDepth);
   cmd.AddValue("maxDepth", "Maximum depth (meters)", maxDepth);
   
-  // Parameter 4: VBF routing pipe radius (width)
   cmd.AddValue("width", "VBF routing pipe radius/width (meters)", vbfWidth);
   
   // Parameter 5: Mobility model
-  cmd.AddValue("mobility", "Mobility model: static or random", mobilityModel);
+  cmd.AddValue("mobility", "Mobility model: fixed or random", mobilityModel);
+
+  // Parameter 6: Area Dimensions
+  cmd.AddValue("areaX", "X dimension of the area (meters)", areaX);
+  cmd.AddValue("areaY", "Y dimension of the area (meters)", areaY);
+  // minDepth/maxDepth already exist, effectively minZ/maxZ
+  
+  cmd.AddValue("areaY", "Y dimension of the area (meters)", areaY);
+  // minDepth/maxDepth already exist, effectively minZ/maxZ
   
   cmd.AddValue("csvFile", "Output CSV file", csvFile);
+  // NEW: Argument for lifetime trace
+  cmd.AddValue("lifetimeTraceFile", "Output trace file for alive nodes", g_lifetimeTraceFile);
+
+  cmd.AddValue("initialEnergy", "Initial energy in Joules", initialEnergyJ);
+  
   cmd.Parse(argc, argv);
   
   // ==== EDITED: Handle common typo VPF -> VBF ====
@@ -163,9 +213,10 @@ main(int argc, char *argv[])
   std::cout << "3. Depth: [" << minDepth << ", " << maxDepth << "] m\n";
   std::cout << "4. VBF Width: " << vbfWidth << " m\n";
   std::cout << "5. Mobility: " << mobilityModel << "\n";
+  std::cout << "6. Area: " << areaX << "x" << areaY << "x[" << minDepth << "," << maxDepth << "]\n";
   std::cout << "--- Network Setup ---\n";
   std::cout << "Sinks: " << sinks << "\n";
-  std::cout << "Area: " << areaX << "x" << areaY << "x[" << minDepth << "," << maxDepth << "]\n";
+  // std::cout << "Area: ..."; // Removed redundant line
   std::cout << "Sink: (" << sinkX << "," << sinkY << "," << sinkZ << ")\n";
   std::cout << "Sender: (" << senderX << "," << senderY << "," << senderZ << ")\n";
   // ==== END OF EDIT ====
@@ -231,15 +282,16 @@ main(int argc, char *argv[])
   MobilityHelper mobility;
   mobility.SetPositionAllocator(position);
   
-  if (mobilityModel == "static") {
+  if (mobilityModel == "fixed") {
     mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
   } else if (mobilityModel == "random") {
     // Random walk in X,Y plane only (horizontal movement)
     // Simulates water currents - depth stays constant
+    // varied speed 1-5 m/s to simulate acceleration/current changes
     mobility.SetMobilityModel("ns3::RandomWalk2dMobilityModel",
                               "Bounds", RectangleValue(Rectangle(0, areaX, 0, areaY)),
-                              "Speed", StringValue("ns3::ConstantRandomVariable[Constant=2.0]"),
-                              "Distance", DoubleValue(50.0));
+                              "Speed", StringValue("ns3::UniformRandomVariable[Min=1.0|Max=5.0]"),
+                              "Distance", DoubleValue(50.0)); // Shorter distance for more frequent changes
   } else {
     NS_FATAL_ERROR("Unsupported mobility model: " << mobilityModel);
   }
@@ -317,6 +369,15 @@ main(int argc, char *argv[])
 
   // ========== NO CHANGES - Original simulation run ==========
   std::cout << "\nRunning Simulation...\n";
+  
+  // NEW: Initialize Trace File
+  if (!g_lifetimeTraceFile.empty()) {
+    std::ofstream out(g_lifetimeTraceFile.c_str());
+    out << "Time,AliveNodes\n";
+    out.close();
+    Simulator::Schedule(Seconds(1.0), &TraceAliveNodeCount, nodesCon, 1.0);
+  }
+
   Simulator::Stop(Seconds(simStop));
   Simulator::Run();
 
@@ -386,6 +447,25 @@ main(int argc, char *argv[])
       networkLifetimeS = simStop + (minResidualEnergy / perNodeRate);
     }
   }
+
+  // ==== EDITED: Calculate Energy Efficiency Metric ====
+  // Formula: Efficiency (%) = (E_useful / E_consumed) * 100
+  // Where E_useful = E_active * PDR
+  // E_active = E_consumed - E_idle (approx)
+  
+  double totalIdleEnergy = devices.GetN() * idlePowerW * simStop;
+  double totalActiveEnergy = totalConsumedEnergy - totalIdleEnergy;
+  
+  // Clamp negative active energy (in case of model discrepancies)
+  if (totalActiveEnergy < 0) totalActiveEnergy = 0.0;
+
+  double energyUseful = totalActiveEnergy * pdr;
+  double energyEfficiencyPercent = 0.0;
+  
+  if (totalConsumedEnergy > 0) {
+      energyEfficiencyPercent = (energyUseful / totalConsumedEnergy) * 100.0;
+  }
+  // ==== END OF EDIT ====
   // ==== END OF EDIT ====
 
   Simulator::Destroy();
@@ -402,7 +482,7 @@ main(int argc, char *argv[])
         << "range,minDepth,maxDepth,vbfWidth,mobility,"  // 5 parameters
         << "areaX,areaY,"
         << "sender_sent,sink_recv,pdr,"  // PDR metrics
-        << "avg_delay_ms,network_lifetime_s,"  // NEW: delay and lifetime
+        << "avg_delay_ms,network_lifetime_s,energy_efficiency_percent,"  // NEW: delay, lifetime, efficiency
         << "initial_energy_per_node,tx_power,rx_power,idle_power,"
         << "total_initial_energy,total_consumed_energy,total_residual_energy\n";
   }
@@ -423,6 +503,7 @@ main(int argc, char *argv[])
       << pdr << ","             // PDR (0.0 to 1.0)
       << avgDelayMs << ","      // NEW: Average delay in ms
       << networkLifetimeS << ","  // NEW: Network lifetime in seconds
+      << energyEfficiencyPercent << "," // NEW: Energy Efficiency %
       << initialEnergyJ << ","
       << txPowerW << ","
       << rxPowerW << ","
@@ -437,6 +518,7 @@ main(int argc, char *argv[])
   std::cout << "PDR: " << (pdr * 100.0) << "%\n";
   std::cout << "Average Delay: " << avgDelayMs << " ms\n";
   std::cout << "Network Lifetime: " << networkLifetimeS << " s\n";
+  std::cout << "Energy Efficiency: " << energyEfficiencyPercent << " %\n";
   std::cout << "Total Initial Energy: " << totalInitialEnergy << " J\n";
   std::cout << "Total Consumed Energy: " << totalConsumedEnergy << " J\n";
   std::cout << "Total Residual Energy: " << totalResidualEnergy << " J\n";

@@ -24,16 +24,29 @@ PACKET_SIZE_BITS = PACKET_SIZE_BYTES * 8
 def calculate_metrics(df):
     """Calculates additional metrics required for plotting."""
     
-    # 1. ODR (Offered Data Rate) in kbps
-    # Formula: (sender_sent * 40 * 8) / (simStop * 1000)
-    if 'sender_sent' in df.columns and 'simStop' in df.columns:
-        df['odr_kbps'] = (df['sender_sent'] * PACKET_SIZE_BITS) / (df['simStop'] * 1000)
-        
-    # 2. Energy Efficiency (%)
-    # Formula: (Total Residual / Total Initial) * 100
-    if 'total_residual_energy' in df.columns and 'total_initial_energy' in df.columns:
-        df['energy_efficiency_percent'] = (df['total_residual_energy'] / df['total_initial_energy']) * 100
 
+
+    # 1A. Average Residual Energy per Node (Clarity improvement)
+    if 'total_residual_energy' in df.columns and 'nodes' in df.columns:
+        # Denominator: nodes + sinks(1) + sender(1). 
+        # But 'nodes' column usually usually refers to relay nodes.
+        # Let's approximate by 'nodes' column if total device count isn't explicit, 
+        # or use (nodes + sinks + 1) if columns available.
+        if 'sinks' in df.columns:
+            total_devs = df['nodes'] + df['sinks'] + 1
+        else:
+            total_devs = df['nodes'] + 2 # Assume 1 sink 1 sender
+        
+        df['avg_residual_energy'] = df['total_residual_energy'] / total_devs
+
+    # 2. Energy Efficiency (%)
+    # Prioritize pre-calculated value from CSV (new logic)
+    # Fallback to (Residual / Initial) * 100 (old logic) if missing
+    if 'energy_efficiency_percent' not in df.columns:
+        if 'total_residual_energy' in df.columns and 'total_initial_energy' in df.columns:
+             df['energy_efficiency_percent'] = (df['total_residual_energy'] / df['total_initial_energy']) * 100
+             print("Warning: Using legacy Energy Efficiency calculation (Residual/Initial)")
+    
     # 3. PDR Percentage
     if 'pdr' in df.columns:
         if df['pdr'].max() <= 1.0:
@@ -57,19 +70,20 @@ def generate_grouped_bar_plot(df, x_var, y_var, output_dir, result_filename_stem
     y_var: The dependent variable (e.g., 'pdr_percent'). Height of bars.
     """
     
-    # Labels
+    # Labels - Clear, complete titles
     label_map = {
         'nodes': 'Number of Nodes',
-        'maxDepth': 'Depth Variation (m)',
-        'vbfWidth': 'Pipe Width (m)',
+        'maxDepth': 'Maximum Depth (m)',
+        'vbfWidth': 'VBF Pipe Width (m)',
         'mobility': 'Mobility Model',
         'range': 'Communication Range (m)',
-        'total_residual_energy': 'Residual Energy (J)',
+        'avg_residual_energy': 'Average Residual Energy per Node (J)',
         'energy_efficiency_percent': 'Energy Efficiency (%)',
-        'pdr_percent': 'PDR (%)',
-        'avg_delay_ms': 'Average Delay (ms)',
-        'network_lifetime_s': 'Network Lifetime (s)',
-        'odr_kbps': 'ODR (kbps)'
+        'pdr_percent': 'Packet Delivery Ratio - PDR (%)',
+        'avg_delay_ms': 'Average End-to-End Delay (ms)',
+        'network_lifetime_s': 'Network Lifetime (seconds)',
+        'areaX': 'Simulation Area Width X (m)',
+        'areaY': 'Simulation Area Length Y (m)',
     }
     
     xlabel = label_map.get(x_var, x_var)
@@ -197,9 +211,27 @@ def generate_grouped_bar_plot(df, x_var, y_var, output_dir, result_filename_stem
     # Increase top margin significantly to accommodate labels
     ax.set_ylim(top=max_height * 1.25) 
     
-    # Output filename
-    desc = f"{x_var}_vs_{y_var}".replace("percent", "").replace("kbps", "").strip("_")
-    filename = f"{result_filename_stem}_{desc}.png"
+    # Descriptive filename mapping
+    y_name_map = {
+        'avg_residual_energy': 'Residual_Energy',
+        'energy_efficiency_percent': 'Energy_Efficiency',
+        'pdr_percent': 'PDR',
+        'avg_delay_ms': 'Average_Delay',
+        'network_lifetime_s': 'Network_Lifetime'
+    }
+    x_name_map = {
+        'nodes': 'Node_Count',
+        'range': 'Range',
+        'maxDepth': 'Depth',
+        'vbfWidth': 'VBF_Width',
+        'mobility': 'Mobility',
+        'areaX': 'Area_Width',
+        'areaY': 'Area_Length'
+    }
+    
+    y_desc = y_name_map.get(y_var, y_var)
+    x_desc = x_name_map.get(x_var, x_var)
+    filename = f"{y_desc}_by_{x_desc}.png"
     output_path = os.path.join(output_dir, filename)
     
     plt.tight_layout()
@@ -232,11 +264,11 @@ def main():
     
     # Define Analysis Matrix
     # X Variables (Independent)
-    x_vars = ['nodes', 'maxDepth', 'vbfWidth', 'mobility', 'range']
+    x_vars = ['nodes', 'maxDepth', 'vbfWidth', 'mobility', 'range', 'areaX', 'areaY']
     
     # Y Variables (Dependent)
-    y_vars = ['total_residual_energy', 'energy_efficiency_percent', 'pdr_percent', 
-              'avg_delay_ms', 'network_lifetime_s', 'odr_kbps']
+    y_vars = ['avg_residual_energy', 'energy_efficiency_percent', 'pdr_percent', 
+              'avg_delay_ms', 'network_lifetime_s']
     
     # Filter active X vars (must have variation)
     varying_x = [x for x in x_vars if x in df.columns and df[x].nunique() > 1]

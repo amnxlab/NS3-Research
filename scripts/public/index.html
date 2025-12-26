@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UWSN Dashboard</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=JetBrains+Mono:wght@300;500&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0b;
+            --panel: rgba(25, 25, 30, 0.85);
+            --accent: #00f3ff;
+            --neon-green: #00ff41;
+            --text: #e0e0e0;
+            --border: rgba(0, 243, 255, 0.3);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'JetBrains Mono', monospace;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        h1,
+        h2,
+        h3 {
+            font-family: 'Orbitron', sans-serif;
+            text-transform: uppercase;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1.5fr;
+            gap: 20px;
+        }
+
+        .header {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 20px;
+            border-bottom: 2px solid var(--accent);
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            color: var(--accent);
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .section-title {
+            color: var(--accent);
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-title::after {
+            content: "";
+            height: 1px;
+            flex-grow: 1;
+            background: var(--border);
+        }
+
+        .grid-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .input-group>label {
+            font-size: 0.75rem;
+            color: #888;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tag {
+            background: rgba(0, 243, 255, 0.15);
+            color: var(--accent);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.6rem;
+        }
+
+        .btn-add {
+            background: transparent;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            padding: 1px 6px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            margin-left: auto;
+        }
+
+        .btn-add:hover {
+            background: rgba(0, 243, 255, 0.2);
+        }
+
+        .field-container {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .field-row {
+            display: flex;
+            gap: 4px;
+        }
+
+        .field-row input {
+            flex: 1;
+        }
+
+        .btn-remove {
+            background: rgba(255, 0, 85, 0.2);
+            border: 1px solid #ff0055;
+            color: #ff0055;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .btn-remove:hover {
+            background: rgba(255, 0, 85, 0.4);
+        }
+
+        input,
+        select {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid #333;
+            color: var(--text);
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-family: inherit;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .protocol-selection {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        .btn {
+            font-family: 'Orbitron', sans-serif;
+            padding: 12px 24px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #000;
+        }
+
+        .btn-primary:hover {
+            background: #fff;
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-danger {
+            background: #ff0055;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        /* Enhanced Console Styling */
+        .console {
+            background: #0d0d0d;
+            border: 1px solid #222;
+            border-radius: 6px;
+            padding: 12px 15px;
+            font-size: 0.78rem;
+            min-height: 420px;
+            max-height: 620px;
+            overflow-y: auto;
+            font-family: 'JetBrains Mono', 'Consolas', monospace;
+        }
+
+        .console::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .console::-webkit-scrollbar-track {
+            background: #111;
+        }
+
+        .console::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 4px;
+        }
+
+        .console-line {
+            margin-bottom: 1px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            color: #f0f0f0;
+            line-height: 1.4;
+        }
+
+        .console-line.cmd {
+            color: #888;
+            font-style: italic;
+        }
+
+        .console-line.title {
+            color: var(--neon-green);
+            font-weight: bold;
+            margin-top: 8px;
+        }
+
+        .console-line.success {
+            color: var(--neon-green);
+        }
+
+        .console-line.error {
+            color: #ff5555;
+        }
+
+        .console-line.info {
+            color: #8be9fd;
+        }
+
+        .console-line.dim {
+            color: #666;
+        }
+
+        .status-bar {
+            margin-top: 10px;
+            font-size: 0.7rem;
+            display: flex;
+            justify-content: space-between;
+            color: #555;
+        }
+
+        #statusText.running {
+            color: var(--neon-green);
+            font-weight: bold;
+        }
+
+        /* Modal & Gallery */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            overflow-y: auto;
+        }
+
+        .modal-content {
+            margin: 3% auto;
+            padding: 25px;
+            width: 95%;
+            max-width: 1400px;
+            background: #0d0d0d;
+            border: 1px solid var(--accent);
+            border-radius: 10px;
+            position: relative;
+        }
+
+        .close-modal {
+            position: absolute;
+            right: 20px;
+            top: 15px;
+            font-size: 30px;
+            color: var(--accent);
+            cursor: pointer;
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h2 {
+            color: var(--accent);
+        }
+
+        .back-btn {
+            background: rgba(0, 243, 255, 0.1);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .back-btn:hover {
+            background: rgba(0, 243, 255, 0.2);
+        }
+
+        /* Folder Grid */
+        .folder-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .folder-item {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border: 1px solid #2a2a4a;
+            border-radius: 10px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .folder-item:hover {
+            border-color: var(--accent);
+            transform: translateY(-3px);
+            box-shadow: 0 5px 20px rgba(0, 243, 255, 0.2);
+        }
+
+        .folder-icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+
+        .folder-name {
+            font-size: 0.75rem;
+            color: #ccc;
+            word-break: break-all;
+            margin-bottom: 5px;
+        }
+
+        .folder-count {
+            font-size: 0.7rem;
+            color: #666;
+        }
+
+        .folder-date {
+            font-size: 0.65rem;
+            color: #555;
+            margin-top: 5px;
+        }
+
+        /* Image Gallery */
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+
+        .image-item {
+            background: #111;
+            border: 1px solid #333;
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .image-item:hover {
+            border-color: var(--accent);
+            transform: scale(1.02);
+        }
+
+        .image-item img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .image-label {
+            padding: 10px;
+            text-align: center;
+            color: #888;
+            font-size: 0.75rem;
+            background: #0a0a0a;
+        }
+
+        /* Lightbox */
+        .lightbox {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.98);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .lightbox.active {
+            display: flex;
+        }
+
+        .lightbox img {
+            max-width: 95%;
+            max-height: 90%;
+            object-fit: contain;
+            border-radius: 5px;
+        }
+
+        .lightbox-close {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            font-size: 40px;
+            color: white;
+            cursor: pointer;
+        }
+
+        .lightbox-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 50px;
+            color: white;
+            cursor: pointer;
+            padding: 20px;
+        }
+
+        .lightbox-nav.prev {
+            left: 20px;
+        }
+
+        .lightbox-nav.next {
+            right: 20px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px;
+            color: #555;
+            grid-column: 1 / -1;
+        }
+
+        .empty-state .icon {
+            font-size: 4rem;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+
+<body>
+    <header class="header">
+        <h1>UWSN SIMULATION SYSTEM</h1>
+        <p>Protocol Comparison & Network Lifetime Analytics</p>
+    </header>
+
+    <div class="container">
+        <div class="card">
+            <div class="section-title">Execution Profile</div>
+
+            <label style="font-size: 0.75rem; color: #888; text-transform: uppercase;">Protocols <span
+                    style="color:red">*</span></label>
+            <div class="protocol-selection">
+                <label class="checkbox-group"><input type="checkbox" name="protocol" value="VBF" checked> VBF</label>
+                <label class="checkbox-group"><input type="checkbox" name="protocol" value="DBR" checked> DBR</label>
+                <label class="checkbox-group"><input type="checkbox" name="protocol" value="flooding" checked>
+                    Flooding</label>
+            </div>
+
+            <div class="grid-row">
+                <div class="input-group">
+                    <label>Node Count <span class="tag">Sweep</span> <button class="btn-add"
+                            onclick="addField('nodes')">+</button></label>
+                    <div class="field-container" id="nodes">
+                        <div class="field-row"><input type="text" value="100"></div>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Runs / Config</label>
+                    <input type="number" id="runs" value="15">
+                </div>
+            </div>
+
+            <div class="section-title">Network Parameters</div>
+            <div class="grid-row">
+                <div class="input-group">
+                    <label>Sim Time (s) <span class="tag">Sweep</span> <button class="btn-add"
+                            onclick="addField('simtime')">+</button></label>
+                    <div class="field-container" id="simtime">
+                        <div class="field-row"><input type="text" value="500"></div>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Range (m) <span class="tag">Sweep</span> <button class="btn-add"
+                            onclick="addField('range')">+</button></label>
+                    <div class="field-container" id="range">
+                        <div class="field-row"><input type="text" value="100"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="input-group" style="margin-bottom: 15px;">
+                <label>Initial Energy (J) <span class="tag">Sweep</span> <button class="btn-add"
+                        onclick="addField('initial_energy')">+</button></label>
+                <div class="field-container" id="initial_energy">
+                    <div class="field-row"><input type="text" value="500"></div>
+                </div>
+            </div>
+
+            <div class="section-title">Advanced Setup</div>
+            <div class="grid-row">
+                <div class="input-group">
+                    <label>Min Z (m) <span class="tag">Sweep</span> <button class="btn-add"
+                            onclick="addField('min_z')">+</button></label>
+                    <div class="field-container" id="min_z">
+                        <div class="field-row"><input type="text" value="0"></div>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Max Z (m) <span class="tag">Sweep</span> <button class="btn-add"
+                            onclick="addField('max_z')">+</button></label>
+                    <div class="field-container" id="max_z">
+                        <div class="field-row"><input type="text" value="400"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-row">
+                <div class="input-group">
+                    <label>Area X (m) <span class="tag">Sweep</span> <button class="btn-add"
+                            onclick="addField('area_x')">+</button></label>
+                    <div class="field-container" id="area_x">
+                        <div class="field-row"><input type="text" value="400"></div>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Area Y (m) <span class="tag">Sweep</span> <button class="btn-add"
+                            onclick="addField('area_y')">+</button></label>
+                    <div class="field-container" id="area_y">
+                        <div class="field-row"><input type="text" value="400"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-row">
+                <div class="input-group">
+                    <label>VBF Width (m) <span class="tag">Sweep</span> <button class="btn-add"
+                            onclick="addField('vbf_width')">+</button></label>
+                    <div class="field-container" id="vbf_width">
+                        <div class="field-row"><input type="text" value="100"></div>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Mobility</label>
+                    <select id="mobility">
+                        <option value="random">Random Walk</option>
+                        <option value="fixed">Fixed</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="section-title">System Flags</div>
+            <div style="display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 20px;">
+                <label class="checkbox-group"><input type="checkbox" id="skip_build"> Skip Build</label>
+                <label class="checkbox-group"><input type="checkbox" id="skip_analysis"> Skip Analysis</label>
+                <label class="checkbox-group"><input type="checkbox" id="skip_plots"> Skip Plots</label>
+            </div>
+
+            <div class="actions">
+                <button id="runBtn" class="btn btn-primary" style="flex-grow: 1;">▶ Initiate Simulation</button>
+                <button id="stopBtn" class="btn btn-danger" style="display: none;">⏹ Abort</button>
+            </div>
+        </div>
+
+        <div>
+            <div class="card" style="margin-bottom: 20px;">
+                <div class="section-title">System Console // Real-time Output</div>
+                <div class="console" id="console">
+                    <div class="console-line dim">> System initialized. Ready for simulation.</div>
+                </div>
+                <div class="status-bar">
+                    <div>API: <span id="apiStatus">checking...</span></div>
+                    <div id="statusText">IDLE</div>
+                </div>
+            </div>
+            <button onclick="openGallery()" class="btn btn-secondary" style="width: 100%;">📊 View Simulation Results
+                Gallery</button>
+        </div>
+    </div>
+
+    <!-- Gallery Modal -->
+    <div id="graphModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeGallery()">&times;</span>
+            <div class="modal-header">
+                <button class="back-btn" id="backBtn" style="display: none;" onclick="showFolders()">← Back</button>
+                <h2 id="galleryTitle">Simulation Results</h2>
+            </div>
+            <div id="galleryContent"></div>
+        </div>
+    </div>
+
+    <!-- Lightbox -->
+    <div id="lightbox" class="lightbox" onclick="closeLightbox()">
+        <span class="lightbox-close">&times;</span>
+        <span class="lightbox-nav prev" onclick="event.stopPropagation(); prevImage()">‹</span>
+        <img id="lightboxImg" src="" alt="">
+        <span class="lightbox-nav next" onclick="event.stopPropagation(); nextImage()">›</span>
+    </div>
+
+    <script>
+        const API = 'http://localhost:8081';
+        const consoleEl = document.getElementById('console');
+        const runBtn = document.getElementById('runBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const statusText = document.getElementById('statusText');
+        const apiStatus = document.getElementById('apiStatus');
+
+        let pollTimer = null;
+        let lineCount = 0;
+        let currentFolder = null;
+        let currentImages = [];
+        let currentImageIndex = 0;
+
+        // === Dynamic Fields ===
+        function addField(containerId, value = '') {
+            const container = document.getElementById(containerId);
+            const row = document.createElement('div');
+            row.className = 'field-row';
+            row.innerHTML = `<input type="text" value="${value}"><button class="btn-remove" onclick="this.parentElement.remove()">×</button>`;
+            container.appendChild(row);
+        }
+
+        function getFieldValues(containerId) {
+            const inputs = document.querySelectorAll(`#${containerId} input`);
+            return Array.from(inputs).map(i => i.value.trim()).filter(v => v).join(',');
+        }
+
+        // === Console with colors ===
+        function log(text) {
+            const div = document.createElement('div');
+            div.className = 'console-line';
+
+            // Detect line type for coloring
+            if (text.startsWith('$') || text.startsWith('[CMD]')) {
+                div.className += ' cmd';
+            } else if (text.includes('===') || text.includes('---') || text.startsWith('STEP') || text.includes('UWSN') || text.includes('WORKFLOW')) {
+                div.className += ' title';
+            } else if (text.includes('✓') || text.includes('✅') || text.includes('Complete') || text.includes('SUCCESS') || text.includes('[FINISHED]')) {
+                div.className += ' success';
+            } else if (text.includes('ERROR') || text.includes('Error') || text.includes('Failed') || text.includes('ABORT')) {
+                div.className += ' error';
+            } else if (text.startsWith('>') || text.includes('Running') || text.includes('Starting')) {
+                div.className += ' info';
+            } else if (text.trim() === '' || text.includes('ninja:')) {
+                div.className += ' dim';
+            }
+
+            div.textContent = text;
+            consoleEl.appendChild(div);
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+        }
+
+        function setRunning(running) {
+            runBtn.disabled = running;
+            runBtn.textContent = running ? '⏳ Running...' : '▶ Initiate Simulation';
+            stopBtn.style.display = running ? 'block' : 'none';
+            statusText.textContent = running ? 'SIMULATION RUNNING' : 'IDLE';
+            statusText.className = running ? 'running' : '';
+        }
+
+        // === API Calls ===
+        async function checkAPI() {
+            try {
+                const res = await fetch(`${API}/status`);
+                const data = await res.json();
+                apiStatus.textContent = 'connected';
+                apiStatus.style.color = '#00ff41';
+                if (data.running) {
+                    setRunning(true);
+                    startPolling();
+                }
+                return true;
+            } catch (e) {
+                apiStatus.textContent = 'disconnected';
+                apiStatus.style.color = '#ff0055';
+                log('> ERROR: Cannot connect to API server');
+                return false;
+            }
+        }
+
+        async function pollOutput() {
+            try {
+                const res = await fetch(`${API}/output?from=${lineCount}`);
+                const data = await res.json();
+                data.lines.forEach(line => log(line));
+                lineCount = data.total;
+                if (!data.running) {
+                    stopPolling();
+                    setRunning(false);
+                }
+            } catch (e) { }
+        }
+
+        function startPolling() {
+            if (pollTimer) return;
+            pollTimer = setInterval(pollOutput, 300);
+            pollOutput();
+        }
+
+        function stopPolling() {
+            if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+        }
+
+        // === Run Simulation ===
+        runBtn.onclick = async function () {
+            const protocols = Array.from(document.querySelectorAll('input[name="protocol"]:checked')).map(c => c.value);
+            if (protocols.length === 0) { alert('Select at least one protocol!'); return; }
+
+            consoleEl.innerHTML = '';
+            lineCount = 0;
+            log('> Initiating simulation...');
+            setRunning(true);
+
+            const payload = {
+                protocols,
+                nodes: getFieldValues('nodes'),
+                runs: document.getElementById('runs').value,
+                simtime: getFieldValues('simtime'),
+                range: getFieldValues('range'),
+                initial_energy: getFieldValues('initial_energy'),
+                min_z: getFieldValues('min_z'),
+                max_z: getFieldValues('max_z'),
+                area_x: getFieldValues('area_x'),
+                area_y: getFieldValues('area_y'),
+                vbf_width: getFieldValues('vbf_width'),
+                mobility: document.getElementById('mobility').value,
+                skip_build: document.getElementById('skip_build').checked,
+                skip_analysis: document.getElementById('skip_analysis').checked,
+                skip_plots: document.getElementById('skip_plots').checked
+            };
+
+            try {
+                const res = await fetch(`${API}/run`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) { startPolling(); }
+                else { log('> Error starting simulation'); setRunning(false); }
+            } catch (e) {
+                log('> Failed: ' + e.message);
+                setRunning(false);
+            }
+        };
+
+        // === Stop ===
+        stopBtn.onclick = async function () {
+            if (!confirm('Abort simulation?')) return;
+            try { await fetch(`${API}/stop`, { method: 'POST' }); log('> Abort signal sent'); } catch (e) { }
+        };
+
+        // === Gallery Functions ===
+        async function openGallery() {
+            document.getElementById('graphModal').style.display = 'block';
+            showFolders();
+        }
+
+        function closeGallery() {
+            document.getElementById('graphModal').style.display = 'none';
+            currentFolder = null;
+        }
+
+        async function showFolders() {
+            currentFolder = null;
+            document.getElementById('backBtn').style.display = 'none';
+            document.getElementById('galleryTitle').textContent = 'Simulation Results';
+            const content = document.getElementById('galleryContent');
+            content.innerHTML = '<div style="color:#888; text-align:center;">Loading...</div>';
+
+            try {
+                const folders = await (await fetch(`${API}/folders`)).json();
+                if (folders.length === 0) {
+                    content.innerHTML = `
+                        <div class="empty-state">
+                            <div class="icon">📁</div>
+                            <h3>No Simulation Results Yet</h3>
+                            <p>Run a simulation to generate graphs and visualizations.</p>
+                        </div>`;
+                    return;
+                }
+
+                content.innerHTML = '<div class="folder-grid"></div>';
+                const grid = content.querySelector('.folder-grid');
+
+                folders.forEach(folder => {
+                    const date = new Date(folder.mtime * 1000);
+                    const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+                    const div = document.createElement('div');
+                    div.className = 'folder-item';
+                    div.onclick = () => openFolder(folder.name);
+                    div.innerHTML = `
+                        <div class="folder-icon">📂</div>
+                        <div class="folder-name">${folder.name}</div>
+                        <div class="folder-count">${folder.count} images</div>
+                        <div class="folder-date">${dateStr}</div>
+                    `;
+                    grid.appendChild(div);
+                });
+            } catch (e) {
+                content.innerHTML = '<div style="color:red; text-align:center;">Error loading folders</div>';
+            }
+        }
+
+        async function openFolder(name) {
+            currentFolder = name;
+            document.getElementById('backBtn').style.display = 'block';
+            document.getElementById('galleryTitle').textContent = name;
+            const content = document.getElementById('galleryContent');
+            content.innerHTML = '<div style="color:#888; text-align:center;">Loading images...</div>';
+
+            try {
+                const images = await (await fetch(`${API}/folder?name=${encodeURIComponent(name)}`)).json();
+                currentImages = images;
+
+                if (images.length === 0) {
+                    content.innerHTML = '<div class="empty-state"><div class="icon">🖼️</div><p>No images in this folder</p></div>';
+                    return;
+                }
+
+                content.innerHTML = '<div class="image-grid"></div>';
+                const grid = content.querySelector('.image-grid');
+
+                images.forEach((img, idx) => {
+                    const div = document.createElement('div');
+                    div.className = 'image-item';
+                    div.onclick = () => openLightbox(idx);
+                    div.innerHTML = `
+                        <img src="/graphs/${currentFolder}/${img}" alt="${img}" loading="lazy">
+                        <div class="image-label">${img}</div>
+                    `;
+                    grid.appendChild(div);
+                });
+            } catch (e) {
+                content.innerHTML = '<div style="color:red; text-align:center;">Error loading images</div>';
+            }
+        }
+
+        // === Lightbox ===
+        function openLightbox(idx) {
+            currentImageIndex = idx;
+            const img = currentImages[idx];
+            document.getElementById('lightboxImg').src = `/graphs/${currentFolder}/${img}`;
+            document.getElementById('lightbox').classList.add('active');
+        }
+
+        function closeLightbox() {
+            document.getElementById('lightbox').classList.remove('active');
+        }
+
+        function prevImage() {
+            currentImageIndex = (currentImageIndex - 1 + currentImages.length) % currentImages.length;
+            document.getElementById('lightboxImg').src = `/graphs/${currentFolder}/${currentImages[currentImageIndex]}`;
+        }
+
+        function nextImage() {
+            currentImageIndex = (currentImageIndex + 1) % currentImages.length;
+            document.getElementById('lightboxImg').src = `/graphs/${currentFolder}/${currentImages[currentImageIndex]}`;
+        }
+
+        // Keyboard navigation for lightbox
+        document.addEventListener('keydown', (e) => {
+            if (!document.getElementById('lightbox').classList.contains('active')) return;
+            if (e.key === 'Escape') closeLightbox();
+            if (e.key === 'ArrowLeft') prevImage();
+            if (e.key === 'ArrowRight') nextImage();
+        });
+
+        window.onclick = function (e) {
+            if (e.target === document.getElementById('graphModal')) closeGallery();
+        };
+
+        // === Init ===
+        checkAPI();
+    </script>
+</body>
+
+</html>
