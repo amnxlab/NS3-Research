@@ -212,9 +212,27 @@ def generate_grouped_bar_plot(df, x_var, y_var, output_dir, result_filename_stem
     # Increase top margin significantly to accommodate labels
     ax.set_ylim(top=max_height * 1.25) 
     
-    # Output filename
-    desc = f"{x_var}_vs_{y_var}".replace("percent", "").replace("kbps", "").strip("_")
-    filename = f"{result_filename_stem}_{desc}.png"
+    # Descriptive filename mapping
+    y_name_map = {
+        'avg_residual_energy': 'Residual_Energy',
+        'energy_efficiency_percent': 'Energy_Efficiency',
+        'pdr_percent': 'PDR',
+        'avg_delay_ms': 'Average_Delay',
+        'network_lifetime_s': 'Network_Lifetime'
+    }
+    x_name_map = {
+        'nodes': 'Node_Count',
+        'range': 'Range',
+        'maxDepth': 'Depth',
+        'vbfWidth': 'VBF_Width',
+        'mobility': 'Mobility',
+        'areaX': 'Area_Width',
+        'areaY': 'Area_Length'
+    }
+    
+    y_desc = y_name_map.get(y_var, y_var)
+    x_desc = x_name_map.get(x_var, x_var)
+    filename = f"{y_desc}_by_{x_desc}.png"
     output_path = os.path.join(output_dir, filename)
     
     plt.tight_layout()

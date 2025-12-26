@@ -454,7 +454,7 @@ def analyze_and_plot_lifetime(trace_files, output_dir):
     plt.grid(True, linestyle='--', alpha=0.5)
 
     
-    out_file = output_dir / "alive_nodes_vs_time.png"
+    out_file = output_dir / "Network_Lifetime_Alive_Nodes.png"
     plt.savefig(out_file, dpi=300)
     plt.close()
     print(f"✓ Saved plot: {out_file}")
