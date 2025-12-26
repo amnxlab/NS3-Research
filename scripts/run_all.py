@@ -325,7 +325,15 @@ def run_experiments(args, csv_file):
 
     all_traces = []
 
+    # ANSI color codes for separators
+    CYAN = '\033[96m'
+    MAGENTA = '\033[95m'
+    RESET = '\033[0m'
+
     for i, params in enumerate(experiments, 1):
+        # Alternating color separator
+        color = CYAN if i % 2 == 1 else MAGENTA
+        print(f"\n{color}{'─' * 70}{RESET}")
         print(f"[{i}/{total_experiments}] ", end="")
         success, result_data = run_single_experiment(params)
 
