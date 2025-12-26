@@ -90,7 +90,7 @@ main(int argc, char *argv[])
 {
   // ========== DEFAULT PARAMETERS (Original values) ==========
   double simStop = 1000;
-  int nodes = 100;
+  int nodes = 1000;
   int sinks = 1;
   uint32_t m_dataRate = 10000;
   uint32_t m_packetSize = 40;
