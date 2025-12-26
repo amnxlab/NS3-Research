@@ -141,8 +141,8 @@ class SimulationHandler(http.server.BaseHTTPRequestHandler):
             post_data = self.rfile.read(content_length)
             data = json.loads(post_data)
 
-            # Build Command w/ same logic as before
-            cmd = ['python3', str(RUN_ALL_SCRIPT)]
+            # Build Command w/ same            # Build Command
+            cmd = ['python3', '-u', str(RUN_ALL_SCRIPT)]
             
             # Protocols
             protocols = data.get('protocols', [])

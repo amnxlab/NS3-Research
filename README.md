@@ -46,144 +46,92 @@ python3 run_all.py [OPTIONS]
 | `--protocols` | list | VBF DBR flooding | Protocols to test (multiple supported) |
 | `--nodes` | list | 100 | Node counts for sweep (e.g., `100 150 200`) |
 | `--runs` | int | 15 | Runs per configuration (for statistical averaging) |
-| `--simtime` | int | 500 | Simulation duration (seconds) |
-| `--range` | list | 100 | Communication range sweep (meters) |
-| `--initial-energy` | float | 500 | Initial battery energy (Joules). **Lower values enable Network Lifetime graph truncation** |
-| `--min-z` | list | 0.0 | Minimum node depth sweep (meters) [Alias: `--min-depth`] |
-| `--max-z` | list | 400.0 | Maximum node depth sweep (meters) [Alias: `--max-depth`] |
-| `--area-x` | list | 400.0 | Area Width (X-axis) sweep (meters) |
-| `--area-y` | list | 400.0 | Area Length (Y-axis) sweep (meters) |
-| `--vbf-width` | list | 100.0 | VBF routing pipe radius sweep (meters) |
-| `--mobility` | list | random | Mobility models: `fixed` or `random` |
-| `--skip-build` | flag | false | Skip copying/building C++ source |
-| `--skip-analysis` | flag | false | Skip result analysis step |
-| `--skip-plots` | flag | false | Skip graph generation |
-| `--output` | path | auto | Custom CSV output path |
+# 🌊 UWSN Simulation Dashboard & Analysis Framework
 
-
+**A comprehensive GUI-based system for UnderWater Sensor Network (UWSN) simulation using NS-3.**
+Compare **VBF**, **DBR**, and **Flooding** protocols with automated parameter sweeping, real-time visualization, and network lifetime analytics.
 
 ---
 
-## The 5 Configurable Parameters
+## 🚀 Quick Start
 
-### 1. **Nodes** (`--nodes`)
-- **What:** Number of relay nodes between sender and sink
-- **Range:** 10-500
-- **Impact:** More nodes = denser network = more routing options
-
+### 1. Start the Dashboard (Recommended)
+The entire system is controlled via a unified web interface.
 ```bash
-python3 run_all.py --nodes 50 100 150 200 --protocols VBF --runs 10
+python3 scripts/start_dashboard.py
+```
+> Open **http://localhost:8000** in your browser.
+
+### 2. Run a Simulation
+1.  **Select Protocols**: Check VBF, DBR, or Flooding.
+2.  **Configure Parameters**:
+    *   **Sweep**: Click `[+]` to add multiple values for Nodes, Time, Range, or Energy.
+    *   **Example**: Add Node counts `100` and `200` to run both scenarios automatically.
+3.  **Click "Initiate Simulation"**.
+4.  **View Results**:
+    *   Watch the **Real-Time Console** for progress.
+    *   Click **"📊 View Graphics Gallery"** to see generated plots instantly.
+
+---
+
+## 🌟 Key Features
+
+### 🖥️ Cyber-Terminal Dashboard
+*   **Detached Execution**: Simulations run in the background. Reloading the page **does not** kill the simulation. The dashboard auto-reconnects to the stream.
+*   **Dynamic Sweeps**: Sweep **any** parameter (Nodes, Range, Sim Time, Energy, Dimensions) by adding multiple input fields. The system handles the combinatorial logic.
+*   **Integrated Gallery**: Built-in modal to browse `alive_nodes_vs_time.png`, `network_lifetime.png`, and more without leaving the UI.
+
+### 📊 Advanced Analytics
+*   **Network Lifetime**: Tracks the exact moment first nodes die (`alive_nodes_vs_time.png`).
+*   **PDR & Delay**: Automated calculation of Packet Delivery Ratio and End-to-End Delay.
+*   **Energy Profiling**: Analysis of energy consumption per node.
+
+---
+
+## 🛠️ Deployment & Manual Usage
+
+### Directory Structure
+*   `scripts/public/`: Web frontend (HTML/JS).
+*   `scripts/api_server.py`: Backend Process Manager (Handles execution & streaming).
+*   `scripts/run_all.py`: Core simulation driver (can be run manually).
+*   `scripts/results/`: Raw CSV data.
+*   `scripts/graphs/`: Generated Plots.
+
+### Manual CLI Execution
+If you prefer the terminal, you can bypass the dashboard:
+```bash
+# Run VBF and DBR with specific parameters
+python3 scripts/run_all.py --protocols VBF DBR --nodes 100 200 --simtime 500 --initial-energy 100
+
+# Full Options
+python3 scripts/run_all.py --help
 ```
 
 ---
 
-### 2. **Communication Range** (`--range`)
-- **What:** Transmission range of each node (meters)
-- **Range:** 50-300
-- **Impact:** 
-  - VBF: Used in delay calculation and pipeline participation
-  - DBR: Determines reachable neighbors for depth-based routing
-  - Flooding: Broadcast radius
+## ⚙️ Configuration Reference
 
-```bash
-python3 run_all.py --range 120 --protocols VBF DBR --runs 10
-```
-
----
-
-### 3. **Depth Variation** (`--min-z`, `--max-z`)
-- **What:** Vertical range (Z-axis) for node placement
-- **Default:** 0 - 400 meters
-- **Impact:**
-  - **DBR: CRITICAL** - Routing decisions based entirely on depth
-  - VBF: Affects 3D pipeline geometry
-
-```bash
-# Shallow deployment
-python3 run_all.py --min-z 0 --max-z 100 --protocols DBR --runs 10
-
-# Deep deployment
-python3 run_all.py --min-z 0 --max-z 600 --protocols DBR --runs 10
-```
+| Parameter | Flag | Description | Sweepable? |
+| :--- | :--- | :--- | :--- |
+| **Nodes** | `--nodes` | Number of nodes in the network | ✅ Yes |
+| **Sim Time** | `--simtime` | Duration of simulation (seconds) | ✅ Yes |
+| **Energy** | `--initial-energy` | Initial battery level (Joules) | ✅ Yes |
+| **Range** | `--range` | Communication range (meters) | ✅ Yes |
+| **Mobility** | `--mobility` | `random` (RandomWalk) or `fixed` | ❌ No |
+| **Dimensions**| `--area-x`, `--area-y` | Network Area Size | ✅ Yes |
 
 ---
 
-### 4. **Area Dimensions** (`--area-x`, `--area-y`)
-- **What:** Horizontal dimensions of the simulation field
-- **Default:** 400x400 meters
-- **Impact:**
-  - Larger area = lower node density (if node count constant)
-  - Affects connectivity and path length
+## 📈 Metric Definitions
 
-```bash
-python3 run_all.py --area-x 1000 --area-y 1000 --nodes 200
-```
+1.  **PDR (Packet Delivery Ratio)**: $\frac{\text{Received Packets}}{\text{Generated Packets}}$
+2.  **Average Delay**: Mean time for successful packet delivery.
+3.  **Network Lifetime**: Time until the first node depletes its battery.
+4.  **Energy Consumed**: Total energy used by all nodes / Total nodes.
 
 ---
 
-### 5. **VBF Width** (`--vbf-width`)
-- **What:** Radius of VBF's virtual routing pipeline
-- **Range:** 50-200 meters
-- **Applies to:** VBF only (ignored by DBR/Flooding)
-- **Trade-off:**
-  - Wider: Higher PDR, more overhead
-  - Narrower: Lower PDR, energy efficient
-
-```bash
-python3 run_all.py --protocols VBF --vbf-width 50 --runs 10   # Narrow
-python3 run_all.py --protocols VBF --vbf-width 150 --runs 10  # Wide
-```
-
----
-
-### 6. **Mobility** (`--mobility`)
-- **What:** Node movement pattern
-- **Options:**
-  - `fixed`: Fixed positions (renamed from `static`)
-  - `random`: Random Walk 2D (Variable speed 1.0-5.0 m/s, dist 30m)
-- **Impact:**
-  - VBF: Nodes may drift in/out of## Quick Start
-
-1.  **Launch the Dashboard** (Recommended)
-    Use the included Python launcher for a one-click setup.
-    ```bash
-    python3 scripts/start_dashboard.py
-    ```
-    Open **http://localhost:8000** in your browser.
-
-2.  **Command Line** (Manual)
-    ```bash
-    python3 scripts/run_all.py --protocols VBF DBR --nodes 100 200 --simtime 500
-    ```
-
----
-
-## 🖥️ Web Dashboard Features
-
-The new cyber-terminal dashboard provides a complete control center for your simulations:
-
-### 1. Unified Control Panel
-*   **Protocol Selection**: Toggle VBF, DBR, and Flooding.
-*   **Dynamic Parameter Sweeps**: Add multiple values for Nodes, Range, Dimensions, Time, and Energy using the `[+]` button. The system automatically runs all combinations.
-*   **Real-Time Console**: View the unfiltered simulation output stream directly in the browser.
-
-### 2. Persistent & Robust
-*   **Detached Execution**: Simulations run in the background. You can close the tab or reload the page without killing the process.
-*   **Auto-Reconnect**: On reload, the dashboard reconnects to the running simulation and restores the log history.
-
-### 3. Visualization Gallery
-*   Built-in **lightbox gallery** for viewing generated plots (`graphs/`).
-*   Auto-updates as new simulations complete.
-*   Supports `alive_nodes_vs_time.png`, `network_lifetime.png`, `pdr_vs_nodes.png`, etc.
-
-### Notes
-*   **Logs**: Simulates standard terminal output with identical formatting.
-*   **Data**: Results are saved to `results/` (CSVs) and `scripts/graphs/` (Plots).
-
-**Example Energy Values for Long Simulations:**
-```bash
-# All nodes survive (flat line at max)
-python3 run_all.py --simtime 15000 --initial-energy 500
+*Verified for NS-3.42 on Linux.*
 
 # Drop visible around 30000-50000s
 python3 run_all.py --simtime 150000 --initial-energy 100
