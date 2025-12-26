@@ -43,24 +43,21 @@ def main():
 
     # 4. Start Servers
     print("🌐 Starting Web Server (8000)...")
-    # Using subprocess.Popen to run in background
-    # We change cwd to public_dir for the static server
+    web_log = open(public_dir / "web_server.log", "w")
     subprocess.Popen(
         ["python3", "-m", "http.server", "8000"],
         cwd=public_dir,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL
+        stdout=web_log,
+        stderr=web_log
     )
 
     print("🔌 Starting API Server (8081)...")
-    # API server needs to run from NS3 root or scripts? 
-    # api_server.py expects to be run such that `scripts/start_dashboard.py` calls it?
-    # Actually api_server.py handles paths relative to itself.
+    api_log = open(script_dir / "api_server.log", "w")
     subprocess.Popen(
-        ["python3", str(script_dir / "api_server.py")],
-        cwd=ns3_root, # Run from root
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL
+        ["python3", "-u", str(script_dir / "api_server.py")],
+        cwd=ns3_root, 
+        stdout=api_log,
+        stderr=api_log
     )
 
     print("------------------------------------------------")
