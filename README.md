@@ -6,6 +6,21 @@ Underwater Wireless Sensor Network simulation framework for comparing VBF, DBR, 
 
 ## Quick Start
 
+### Option 1: Web Dashboard (Recommended - Works Everywhere!)
+```bash
+cd ~/NS3-Research/scripts
+./launch_dashboard.sh
+```
+Then open your browser to: **http://localhost:8000**
+
+**Features:**
+- 🎨 Professional Cyber-Terminal dark theme with glassmorphism
+- ✅ All parameters in one interface with smart defaults
+- 📊 Real-time console output streaming
+- 💾 Parameter sweeps via comma-separated values
+- 🌐 Works in any environment (no GUI display required)
+
+### Option 2: Command Line
 ```bash
 cd ~/NS3-Research/scripts
 python3 -m pip install -r requirements.txt
@@ -28,19 +43,24 @@ python3 run_all.py [OPTIONS]
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `--protocols` | list | VBF DBR flooding | Protocols to test |
-| `--nodes` | list | 100 | Node counts (e.g., `100 150 200`) |
-| `--runs` | int | 15 | Runs per configuration |
+| `--protocols` | list | VBF DBR flooding | Protocols to test (multiple supported) |
+| `--nodes` | list | 100 | Node counts for sweep (e.g., `100 150 200`) |
+| `--runs` | int | 15 | Runs per configuration (for statistical averaging) |
 | `--simtime` | int | 500 | Simulation duration (seconds) |
-| `--range` | float | 100 | Communication range (meters) |
-| `--min-depth` | float | 0.0 | Minimum node depth (meters) |
-| `--max-depth` | float | 400.0 | Maximum node depth (meters) |
-| `--vbf-width` | float | 100.0 | VBF routing pipe radius (meters) |
-| `--mobility` | choice | static | `static` or `random` (2D horizontal) |
-| `--skip-build` | flag | false | Skip copying/building simulation |
-| `--skip-analysis` | flag | false | Skip analysis step |
-| `--skip-plots` | flag | false | Skip plot generation |
+| `--range` | list | 100 | Communication range sweep (meters) |
+| `--initial-energy` | float | 500 | Initial battery energy (Joules). **Lower values enable Network Lifetime graph truncation** |
+| `--min-z` | list | 0.0 | Minimum node depth sweep (meters) [Alias: `--min-depth`] |
+| `--max-z` | list | 400.0 | Maximum node depth sweep (meters) [Alias: `--max-depth`] |
+| `--area-x` | list | 400.0 | Area Width (X-axis) sweep (meters) |
+| `--area-y` | list | 400.0 | Area Length (Y-axis) sweep (meters) |
+| `--vbf-width` | list | 100.0 | VBF routing pipe radius sweep (meters) |
+| `--mobility` | list | random | Mobility models: `fixed` or `random` |
+| `--skip-build` | flag | false | Skip copying/building C++ source |
+| `--skip-analysis` | flag | false | Skip result analysis step |
+| `--skip-plots` | flag | false | Skip graph generation |
 | `--output` | path | auto | Custom CSV output path |
+
+
 
 ---
 
@@ -71,25 +91,37 @@ python3 run_all.py --range 120 --protocols VBF DBR --runs 10
 
 ---
 
-### 3. **Depth Variation** (`--min-depth`, `--max-depth`)
+### 3. **Depth Variation** (`--min-z`, `--max-z`)
 - **What:** Vertical range (Z-axis) for node placement
-- **Range:** 0-1000 meters
+- **Default:** 0 - 400 meters
 - **Impact:**
   - **DBR: CRITICAL** - Routing decisions based entirely on depth
   - VBF: Affects 3D pipeline geometry
-  - Area: 400x400 (X,Y) fixed
 
 ```bash
 # Shallow deployment
-python3 run_all.py --min-depth 0 --max-depth 100 --protocols DBR --runs 10
+python3 run_all.py --min-z 0 --max-z 100 --protocols DBR --runs 10
 
 # Deep deployment
-python3 run_all.py --min-depth 0 --max-depth 600 --protocols DBR --runs 10
+python3 run_all.py --min-z 0 --max-z 600 --protocols DBR --runs 10
 ```
 
 ---
 
-### 4. **VBF Width** (`--vbf-width`)
+### 4. **Area Dimensions** (`--area-x`, `--area-y`)
+- **What:** Horizontal dimensions of the simulation field
+- **Default:** 400x400 meters
+- **Impact:**
+  - Larger area = lower node density (if node count constant)
+  - Affects connectivity and path length
+
+```bash
+python3 run_all.py --area-x 1000 --area-y 1000 --nodes 200
+```
+
+---
+
+### 5. **VBF Width** (`--vbf-width`)
 - **What:** Radius of VBF's virtual routing pipeline
 - **Range:** 50-200 meters
 - **Applies to:** VBF only (ignored by DBR/Flooding)
@@ -98,25 +130,69 @@ python3 run_all.py --min-depth 0 --max-depth 600 --protocols DBR --runs 10
   - Narrower: Lower PDR, energy efficient
 
 ```bash
-python3 run_all.py --protocol VBF --vbf-width 50 --runs 10   # Narrow
-python3 run_all.py --protocol VBF --vbf-width 150 --runs 10  # Wide
+python3 run_all.py --protocols VBF --vbf-width 50 --runs 10   # Narrow
+python3 run_all.py --protocols VBF --vbf-width 150 --runs 10  # Wide
 ```
 
 ---
 
-### 5. **Mobility** (`--mobility`)
+### 6. **Mobility** (`--mobility`)
 - **What:** Node movement pattern
 - **Options:**
-  - `static`: Fixed positions (anchored sensors)
-  - `random`: 2D horizontal drift (water currents, depth constant)
+  - `fixed`: Fixed positions (renamed from `static`)
+  - `random`: Random Walk 2D (Variable speed 1.0-5.0 m/s, dist 30m)
 - **Impact:**
-  - VBF: Nodes may drift in/out of pipeline
-  - DBR: Robust (depth unchanged)
-  - Flooding: Neighbor set changes
+  - VBF: Nodes may drift in/out of## Quick Start
 
+1.  **Launch the Dashboard** (Recommended)
+    Use the included Python launcher for a one-click setup.
+    ```bash
+    python3 scripts/start_dashboard.py
+    ```
+    Open **http://localhost:8000** in your browser.
+
+2.  **Command Line** (Manual)
+    ```bash
+    python3 scripts/run_all.py --protocols VBF DBR --nodes 100 200 --simtime 500
+    ```
+
+---
+
+## 🖥️ Web Dashboard Features
+
+The new cyber-terminal dashboard provides a complete control center for your simulations:
+
+### 1. Unified Control Panel
+*   **Protocol Selection**: Toggle VBF, DBR, and Flooding.
+*   **Dynamic Parameter Sweeps**: Add multiple values for Nodes, Range, Dimensions, Time, and Energy using the `[+]` button. The system automatically runs all combinations.
+*   **Real-Time Console**: View the unfiltered simulation output stream directly in the browser.
+
+### 2. Persistent & Robust
+*   **Detached Execution**: Simulations run in the background. You can close the tab or reload the page without killing the process.
+*   **Auto-Reconnect**: On reload, the dashboard reconnects to the running simulation and restores the log history.
+
+### 3. Visualization Gallery
+*   Built-in **lightbox gallery** for viewing generated plots (`graphs/`).
+*   Auto-updates as new simulations complete.
+*   Supports `alive_nodes_vs_time.png`, `network_lifetime.png`, `pdr_vs_nodes.png`, etc.
+
+### Notes
+*   **Logs**: Simulates standard terminal output with identical formatting.
+*   **Data**: Results are saved to `results/` (CSVs) and `scripts/graphs/` (Plots).
+
+**Example Energy Values for Long Simulations:**
 ```bash
-python3 run_all.py --mobility static --protocols VBF DBR --runs 15
-python3 run_all.py --mobility random --protocols VBF DBR --runs 15
+# All nodes survive (flat line at max)
+python3 run_all.py --simtime 15000 --initial-energy 500
+
+# Drop visible around 30000-50000s
+python3 run_all.py --simtime 150000 --initial-energy 100
+
+# Drop visible around 15000-25000s
+python3 run_all.py --simtime 150000 --initial-energy 50
+
+# Drop visible around 7500-12500s
+python3 run_all.py --simtime 150000 --initial-energy 25
 ```
 
 ---
@@ -135,13 +211,13 @@ python3 run_all.py --protocols VBF DBR --nodes 50 100 150 200 --runs 10
 
 ### VBF Width Optimization
 ```bash
-python3 run_all.py --protocol VBF --vbf-width 50 100 150 --runs 20
+python3 run_all.py --protocols VBF --vbf-width 50 100 150 --runs 20
 ```
 
 ### DBR Depth Analysis
 ```bash
-python3 run_all.py --protocol DBR --min-depth 0 --max-depth 200 --runs 15
-python3 run_all.py --protocol DBR --min-depth 0 --max-depth 400 --runs 15
+python3 run_all.py --protocols DBR --min-z 0 --max-z 200 --runs 15
+python3 run_all.py --protocols DBR --min-z 0 --max-z 400 --runs 15
 ```
 
 ### Mobility Impact
@@ -161,8 +237,8 @@ python3 run_all.py \
   --protocols VBF DBR flooding \
   --nodes 100 150 200 \
   --range 120 \
-  --min-depth 0 \
-  --max-depth 300 \
+  --min-z 0 \
+  --max-z 300 \
   --vbf-width 80 \
   --mobility random \
   --runs 15 \
@@ -201,6 +277,12 @@ rx_power,idle_power,total_initial_energy,total_consumed_energy,total_residual_en
 - `v2_energy_comparison.png` - Energy consumption bar chart
 - `v2_energy_distribution.png` - Box plot of energy distribution
 - `v2_scalability_analysis.png` - Energy/residual vs node count (if multiple node counts)
+- `alive_nodes_vs_time.png` - **Network Lifetime**: Number of alive nodes over time
+  - **Full simulation timeline** displayed on X-axis
+  - **Drop clearly visible** when nodes start dying
+  - Shows flat line at max nodes if no deaths occur (default 500J energy)
+  - Use lower `--initial-energy` to observe node death patterns
+
 
 ---
 
@@ -300,9 +382,10 @@ NS3-Research/
 | **PDR** | Packet Delivery Ratio (%) | `pdr` |
 | **Sent Packets** | Total sent by sender | `sender_sent` |
 | **Received Packets** | Total received at sink | `sink_recv` |
-| **Total Energy** | Energy consumed (J) | `total_consumed_energy` |
-| **Residual Energy** | Remaining energy (J) | `total_residual_energy` |
-| **Initial Energy** | Starting energy (J) | `total_initial_energy` |
+| **Total Energy** | Total Consumed Energy (J) | `total_consumed_energy` |
+| **Residual Energy** | Total Residual Energy (J) | `total_residual_energy` |
+| **Efficiency** | Metric: `(E_useful / E_consumed) * 100` | `energy_efficiency_percent` |
+| **Avg Energy** | Average Residual per Node (J) | `avg_residual_energy` (Computed) |
 
 ---
 
@@ -378,16 +461,18 @@ python3 run_all.py
 # Common usage
 python3 run_all.py --protocols VBF DBR --nodes 100 --runs 15
 
-# All 5 parameters
+# All Parameters Test
 python3 run_all.py \
-  --nodes 100 \
-  --range 120 \
-  --min-depth 0 \
-  --max-depth 300 \
-  --vbf-width 80 \
-  --mobility random \
+  --nodes 100 150 \
+  --range 120 150 \
+  --min-z 0 \
+  --max-z 300 500 \
+  --area-x 500 1000 \
+  --area-y 500 1000 \
+  --vbf-width 80 100 \
+  --mobility fixed random \
   --protocols VBF DBR flooding \
-  --runs 15
+  --runs 5
 ```
 
 **Done! Results in `results/`, graphs in `scripts/graphs/`**

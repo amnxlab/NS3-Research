@@ -82,6 +82,8 @@ def generate_grouped_bar_plot(df, x_var, y_var, output_dir, result_filename_stem
         'pdr_percent': 'PDR (%)',
         'avg_delay_ms': 'Average Delay (ms)',
         'network_lifetime_s': 'Network Lifetime (s)',
+        'areaX': 'Area Width (X) (m)',
+        'areaY': 'Area Length (Y) (m)',
 
     }
     
@@ -245,7 +247,7 @@ def main():
     
     # Define Analysis Matrix
     # X Variables (Independent)
-    x_vars = ['nodes', 'maxDepth', 'vbfWidth', 'mobility', 'range']
+    x_vars = ['nodes', 'maxDepth', 'vbfWidth', 'mobility', 'range', 'areaX', 'areaY']
     
     # Y Variables (Dependent)
     y_vars = ['avg_residual_energy', 'energy_efficiency_percent', 'pdr_percent', 
