@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+"""
+UWSN Dashboard Launcher
+Starts the combined server (web + API on port 8000).
+"""
 import os
 import sys
 import subprocess
@@ -10,13 +14,14 @@ from pathlib import Path
 
 def main():
     print("------------------------------------------------")
-    print("🚀 UWSN Dashboard Launcher (Python Version)")
+    print("🚀 UWSN Dashboard Launcher")
     print("------------------------------------------------")
 
     # 1. Kill old processes
     print("Stopping old servers...")
-    subprocess.run(["pkill", "-f", "python3 -m http.server 8000"])
-    subprocess.run(["pkill", "-f", "api_server.py"])
+    subprocess.run(["pkill", "-f", "python3 -m http.server 8000"], capture_output=True)
+    subprocess.run(["pkill", "-f", "api_server.py"], capture_output=True)
+    subprocess.run(["pkill", "-f", "combined_server.py"], capture_output=True)
 
     # 2. Setup Paths
     script_dir = Path(__file__).parent.resolve()
@@ -44,71 +49,37 @@ def main():
         public_graphs.unlink()
     public_graphs.symlink_to(real_graphs)
 
-    # 3.5 Create VS Code settings for auto port forwarding
-    vscode_dir = ns3_root / ".vscode"
-    vscode_dir.mkdir(parents=True, exist_ok=True)
-    vscode_settings = vscode_dir / "settings.json"
-    
-    import json
-    settings = {}
-    if vscode_settings.exists():
-        try:
-            with open(vscode_settings) as f:
-                settings = json.load(f)
-        except:
-            pass
-    
-    # Add port forwarding settings
-    settings["remote.autoForwardPorts"] = True
-    settings["remote.autoForwardPortsSource"] = "process"
-    settings["remote.portsAttributes"] = {
-        "8000": {"label": "UWSN Web Server", "onAutoForward": "openBrowser"},
-        "8081": {"label": "UWSN API Server", "onAutoForward": "silent"}
-    }
-    
-    with open(vscode_settings, "w") as f:
-        json.dump(settings, f, indent=4)
-    print("📝 VS Code port forwarding configured...")
-
-    # 4. Start Servers
-    print("🌐 Starting Web Server (8000)...")
-    web_log = open(public_dir / "web_server.log", "w")
+    # 4. Start Combined Server (Web + API on port 8000)
+    print("� Starting Combined Server (port 8000)...")
+    server_log = open(script_dir / "server.log", "w")
     subprocess.Popen(
-        ["python3", "-m", "http.server", "8000"],
-        cwd=public_dir,
-        stdout=web_log,
-        stderr=web_log
-    )
-
-    print("🔌 Starting API Server (8081)...")
-    api_log = open(script_dir / "api_server.log", "w")
-    subprocess.Popen(
-        ["python3", "-u", str(script_dir / "api_server.py")],
+        ["python3", "-u", str(script_dir / "combined_server.py")],
         cwd=ns3_root, 
-        stdout=api_log,
-        stderr=api_log
+        stdout=server_log,
+        stderr=server_log
     )
 
-    # Wait for API to be ready (up to 5 seconds)
-    print("⏳ Waiting for API server to be ready...")
-    api_ready = False
+    # Wait for server to be ready (up to 5 seconds)
+    print("⏳ Waiting for server to be ready...")
+    server_ready = False
     for i in range(10):
         try:
-            req = urllib.request.urlopen("http://localhost:8081/status", timeout=1)
+            req = urllib.request.urlopen("http://localhost:8000/status", timeout=1)
             if req.status == 200:
-                api_ready = True
+                server_ready = True
                 break
         except:
             pass
         time.sleep(0.5)
     
-    if api_ready:
-        print("✅ API server is ready!")
+    if server_ready:
+        print("✅ Server is ready!")
     else:
-        print("⚠️  API server may still be starting...")
+        print("⚠️  Server may still be starting...")
 
     print("------------------------------------------------")
-    print("✅ DASHBOARD LIVE AT: http://localhost:8000")
+    print("✅ DASHBOARD: http://localhost:8000")
+    print("   (Single port - no forwarding issues!)")
     print("------------------------------------------------")
     
     # Auto-open browser
