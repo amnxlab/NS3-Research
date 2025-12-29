@@ -40,12 +40,35 @@ def calculate_metrics(df):
         df['avg_residual_energy'] = df['total_residual_energy'] / total_devs
 
     # 2. Energy Efficiency (%)
-    # Prioritize pre-calculated value from CSV (new logic)
-    # Fallback to (Residual / Initial) * 100 (old logic) if missing
+    # Prioritize pre-calculated value from CSV
+    # Fallback: Efficiency = (E_useful / E_consumed) * 100
+    #   Where E_useful = E_active * PDR
+    #         E_active = E_consumed - E_idle
     if 'energy_efficiency_percent' not in df.columns:
-        if 'total_residual_energy' in df.columns and 'total_initial_energy' in df.columns:
-             df['energy_efficiency_percent'] = (df['total_residual_energy'] / df['total_initial_energy']) * 100
-             print("Warning: Using legacy Energy Efficiency calculation (Residual/Initial)")
+        if 'total_initial_energy' in df.columns and 'total_residual_energy' in df.columns and 'pdr' in df.columns:
+            # Calculate E_consumed
+            total_consumed = df['total_initial_energy'] - df['total_residual_energy']
+            
+            # Calculate E_idle = devices × idle_power × simStop
+            # Estimate devices from nodes + 2 (sink + sender)
+            if 'nodes' in df.columns and 'idle_power' in df.columns and 'simStop' in df.columns:
+                total_devices = df['nodes'] + 2
+                idle_energy = total_devices * df['idle_power'] * df['simStop']
+            else:
+                idle_energy = 0  # Fallback if columns missing
+            
+            # E_active = E_consumed - E_idle
+            active_energy = total_consumed - idle_energy
+            active_energy = active_energy.clip(lower=0)  # Clamp negative values
+            
+            # E_useful = E_active × PDR
+            useful_energy = active_energy * df['pdr']
+            
+            # Efficiency = (E_useful / E_consumed) × 100
+            df['energy_efficiency_percent'] = (useful_energy / total_consumed.replace(0, np.nan)) * 100
+            df['energy_efficiency_percent'] = df['energy_efficiency_percent'].fillna(0)
+            
+            print("Note: Calculated Energy Efficiency using formula: (E_active × PDR) / E_consumed × 100")
     
     # 3. PDR Percentage
     if 'pdr' in df.columns:
