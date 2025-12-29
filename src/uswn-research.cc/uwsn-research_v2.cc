@@ -449,23 +449,16 @@ main(int argc, char *argv[])
   }
 
   // ==== EDITED: Calculate Energy Efficiency Metric ====
-  // Formula: Efficiency (%) = (E_useful / E_consumed) * 100
-  // Where E_useful = E_active * PDR
-  // E_active = E_consumed - E_idle (approx)
+  // Formula: Energy Efficiency = (Successfully received bits) / (Total Energy Consumed)
+  // Unit: bits/Joule
+  // Where: received bits = sink_recv_packets × packet_size_bits
   
-  double totalIdleEnergy = devices.GetN() * idlePowerW * simStop;
-  double totalActiveEnergy = totalConsumedEnergy - totalIdleEnergy;
-  
-  // Clamp negative active energy (in case of model discrepancies)
-  if (totalActiveEnergy < 0) totalActiveEnergy = 0.0;
-
-  double energyUseful = totalActiveEnergy * pdr;
-  double energyEfficiencyPercent = 0.0;
+  double receivedBits = sinkRecvPkts * (m_packetSize * 8.0);  // packets × bits/packet
+  double energyEfficiency = 0.0;  // bits/Joule
   
   if (totalConsumedEnergy > 0) {
-      energyEfficiencyPercent = (energyUseful / totalConsumedEnergy) * 100.0;
+      energyEfficiency = receivedBits / totalConsumedEnergy;
   }
-  // ==== END OF EDIT ====
   // ==== END OF EDIT ====
 
   Simulator::Destroy();
@@ -482,7 +475,7 @@ main(int argc, char *argv[])
         << "range,minDepth,maxDepth,vbfWidth,mobility,"  // 5 parameters
         << "areaX,areaY,"
         << "sender_sent,sink_recv,pdr,"  // PDR metrics
-        << "avg_delay_ms,network_lifetime_s,energy_efficiency_percent,"  // NEW: delay, lifetime, efficiency
+        << "avg_delay_ms,network_lifetime_s,energy_efficiency_bits_per_joule,"  // delay, lifetime, efficiency (bits/J)
         << "initial_energy_per_node,tx_power,rx_power,idle_power,"
         << "total_initial_energy,total_consumed_energy,total_residual_energy\n";
   }
@@ -503,7 +496,7 @@ main(int argc, char *argv[])
       << pdr << ","             // PDR (0.0 to 1.0)
       << avgDelayMs << ","      // NEW: Average delay in ms
       << networkLifetimeS << ","  // NEW: Network lifetime in seconds
-      << energyEfficiencyPercent << "," // NEW: Energy Efficiency %
+      << energyEfficiency << "," // Energy Efficiency (bits/Joule)
       << initialEnergyJ << ","
       << txPowerW << ","
       << rxPowerW << ","
@@ -518,7 +511,7 @@ main(int argc, char *argv[])
   std::cout << "PDR: " << (pdr * 100.0) << "%\n";
   std::cout << "Average Delay: " << avgDelayMs << " ms\n";
   std::cout << "Network Lifetime: " << networkLifetimeS << " s\n";
-  std::cout << "Energy Efficiency: " << energyEfficiencyPercent << " %\n";
+  std::cout << "Energy Efficiency: " << energyEfficiency << " bits/J\n";
   std::cout << "Total Initial Energy: " << totalInitialEnergy << " J\n";
   std::cout << "Total Consumed Energy: " << totalConsumedEnergy << " J\n";
   std::cout << "Total Residual Energy: " << totalResidualEnergy << " J\n";

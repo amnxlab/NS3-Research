@@ -39,36 +39,26 @@ def calculate_metrics(df):
         
         df['avg_residual_energy'] = df['total_residual_energy'] / total_devs
 
-    # 2. Energy Efficiency (%)
-    # Prioritize pre-calculated value from CSV
-    # Fallback: Efficiency = (E_useful / E_consumed) * 100
-    #   Where E_useful = E_active * PDR
-    #         E_active = E_consumed - E_idle
-    if 'energy_efficiency_percent' not in df.columns:
-        if 'total_initial_energy' in df.columns and 'total_residual_energy' in df.columns and 'pdr' in df.columns:
-            # Calculate E_consumed
+    # 2. Energy Efficiency (bits/Joule)
+    # Formula: Energy Efficiency = (Successfully received bits) / (Total Energy Consumed)
+    # Where: received bits = sink_recv × packet_size_bits
+    if 'energy_efficiency_bits_per_joule' not in df.columns:
+        if 'sink_recv' in df.columns and 'total_initial_energy' in df.columns and 'total_residual_energy' in df.columns:
+            # Calculate received bits
+            received_bits = df['sink_recv'] * PACKET_SIZE_BITS
+            
+            # Calculate consumed energy
             total_consumed = df['total_initial_energy'] - df['total_residual_energy']
             
-            # Calculate E_idle = devices × idle_power × simStop
-            # Estimate devices from nodes + 2 (sink + sender)
-            if 'nodes' in df.columns and 'idle_power' in df.columns and 'simStop' in df.columns:
-                total_devices = df['nodes'] + 2
-                idle_energy = total_devices * df['idle_power'] * df['simStop']
-            else:
-                idle_energy = 0  # Fallback if columns missing
+            # Energy Efficiency = received_bits / consumed_energy
+            df['energy_efficiency_bits_per_joule'] = received_bits / total_consumed.replace(0, np.nan)
+            df['energy_efficiency_bits_per_joule'] = df['energy_efficiency_bits_per_joule'].fillna(0)
             
-            # E_active = E_consumed - E_idle
-            active_energy = total_consumed - idle_energy
-            active_energy = active_energy.clip(lower=0)  # Clamp negative values
-            
-            # E_useful = E_active × PDR
-            useful_energy = active_energy * df['pdr']
-            
-            # Efficiency = (E_useful / E_consumed) × 100
-            df['energy_efficiency_percent'] = (useful_energy / total_consumed.replace(0, np.nan)) * 100
-            df['energy_efficiency_percent'] = df['energy_efficiency_percent'].fillna(0)
-            
-            print("Note: Calculated Energy Efficiency using formula: (E_active × PDR) / E_consumed × 100")
+            print("Note: Calculated Energy Efficiency using formula: received_bits / consumed_energy (bits/J)")
+    
+    # Legacy support: if old column exists, rename it
+    if 'energy_efficiency_percent' in df.columns and 'energy_efficiency_bits_per_joule' not in df.columns:
+        print("Warning: Found old 'energy_efficiency_percent' column. Please re-run simulation for correct formula.")
     
     # 3. PDR Percentage
     if 'pdr' in df.columns:
@@ -101,7 +91,7 @@ def generate_grouped_bar_plot(df, x_var, y_var, output_dir, result_filename_stem
         'mobility': 'Mobility Model',
         'range': 'Communication Range (m)',
         'avg_residual_energy': 'Average Residual Energy per Node (J)',
-        'energy_efficiency_percent': 'Energy Efficiency (%)',
+        'energy_efficiency_bits_per_joule': 'Energy Efficiency (bits/J)',
         'pdr_percent': 'Packet Delivery Ratio - PDR (%)',
         'avg_delay_ms': 'Average End-to-End Delay (ms)',
         'network_lifetime_s': 'Network Lifetime (seconds)',
@@ -237,7 +227,7 @@ def generate_grouped_bar_plot(df, x_var, y_var, output_dir, result_filename_stem
     # Descriptive filename mapping
     y_name_map = {
         'avg_residual_energy': 'Residual_Energy',
-        'energy_efficiency_percent': 'Energy_Efficiency',
+        'energy_efficiency_bits_per_joule': 'Energy_Efficiency',
         'pdr_percent': 'PDR',
         'avg_delay_ms': 'Average_Delay',
         'network_lifetime_s': 'Network_Lifetime'
@@ -290,7 +280,7 @@ def main():
     x_vars = ['nodes', 'maxDepth', 'vbfWidth', 'mobility', 'range', 'areaX', 'areaY']
     
     # Y Variables (Dependent)
-    y_vars = ['avg_residual_energy', 'energy_efficiency_percent', 'pdr_percent', 
+    y_vars = ['avg_residual_energy', 'energy_efficiency_bits_per_joule', 'pdr_percent', 
               'avg_delay_ms', 'network_lifetime_s']
     
     # Filter active X vars (must have variation)
