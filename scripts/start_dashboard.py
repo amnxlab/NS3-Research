@@ -3,6 +3,9 @@ import os
 import sys
 import subprocess
 import shutil
+import time
+import urllib.request
+import webbrowser
 from pathlib import Path
 
 def main():
@@ -41,6 +44,32 @@ def main():
         public_graphs.unlink()
     public_graphs.symlink_to(real_graphs)
 
+    # 3.5 Create VS Code settings for auto port forwarding
+    vscode_dir = ns3_root / ".vscode"
+    vscode_dir.mkdir(parents=True, exist_ok=True)
+    vscode_settings = vscode_dir / "settings.json"
+    
+    import json
+    settings = {}
+    if vscode_settings.exists():
+        try:
+            with open(vscode_settings) as f:
+                settings = json.load(f)
+        except:
+            pass
+    
+    # Add port forwarding settings
+    settings["remote.autoForwardPorts"] = True
+    settings["remote.autoForwardPortsSource"] = "process"
+    settings["remote.portsAttributes"] = {
+        "8000": {"label": "UWSN Web Server", "onAutoForward": "openBrowser"},
+        "8081": {"label": "UWSN API Server", "onAutoForward": "silent"}
+    }
+    
+    with open(vscode_settings, "w") as f:
+        json.dump(settings, f, indent=4)
+    print("📝 VS Code port forwarding configured...")
+
     # 4. Start Servers
     print("🌐 Starting Web Server (8000)...")
     web_log = open(public_dir / "web_server.log", "w")
@@ -60,9 +89,31 @@ def main():
         stderr=api_log
     )
 
+    # Wait for API to be ready (up to 5 seconds)
+    print("⏳ Waiting for API server to be ready...")
+    api_ready = False
+    for i in range(10):
+        try:
+            req = urllib.request.urlopen("http://localhost:8081/status", timeout=1)
+            if req.status == 200:
+                api_ready = True
+                break
+        except:
+            pass
+        time.sleep(0.5)
+    
+    if api_ready:
+        print("✅ API server is ready!")
+    else:
+        print("⚠️  API server may still be starting...")
+
     print("------------------------------------------------")
     print("✅ DASHBOARD LIVE AT: http://localhost:8000")
     print("------------------------------------------------")
+    
+    # Auto-open browser
+    print("🌐 Opening browser...")
+    webbrowser.open("http://localhost:8000")
 
 if __name__ == "__main__":
     main()
