@@ -290,7 +290,7 @@ main(int argc, char *argv[])
     // varied speed 1-5 m/s to simulate acceleration/current changes
     mobility.SetMobilityModel("ns3::RandomWalk2dMobilityModel",
                               "Bounds", RectangleValue(Rectangle(0, areaX, 0, areaY)),
-                              "Speed", StringValue("ns3::UniformRandomVariable[Min=1.0|Max=5.0]"),
+                              "Speed", StringValue("ns3::UniformRandomVariable[Min=1.0|Max=3.0]"),
                               "Distance", DoubleValue(50.0)); // Shorter distance for more frequent changes
   } else {
     NS_FATAL_ERROR("Unsupported mobility model: " << mobilityModel);
