@@ -411,7 +411,7 @@ NS_OBJECT_ENSURE_REGISTERED(AquaSimEDBR);
 
 AquaSimEDBR::AquaSimEDBR() :
     m_bInt(EDBR_BEACON_INT), m_bDesync(EDBR_BEACON_DESYNC), m_pktCnt(0),
-    m_Tmin(0.1), m_k(4.0), m_Dmax(300.0), m_epsilon(0.01), m_useInverseScaling(false)
+    m_Tmin(0.1), m_k(4.0), m_Dmax(300.0), m_epsilon(0.01)
 {
     m_nTab = new EDBRNeighbTable();
     m_pc = new EDBRPktCache();
@@ -452,10 +452,7 @@ TypeId AquaSimEDBR::GetTypeId()
             DoubleValue(0.01),
             MakeDoubleAccessor(&AquaSimEDBR::m_epsilon),
             MakeDoubleChecker<double>())
-        .AddAttribute("UseInverseScaling", "Use inverse energy scaling formula",
-            BooleanValue(false),
-            MakeBooleanAccessor(&AquaSimEDBR::m_useInverseScaling),
-            MakeBooleanChecker())
+
     ;
     return tid;
 }
@@ -476,8 +473,7 @@ void AquaSimEDBR::DoDispose()
 /**
  * Calculate energy-aware delay based on depth gain and residual energy.
  * 
- * Form 1 (Linear Penalty): Th = Tmin + k * (1 - Δd/Dmax) * (1 - Eres/Einit)
- * Form 2 (Inverse Scaling): Th = Tmin + k * (1 - Δd/Dmax) * (1 / (Eres/Einit + ε))
+ * Linear Penalty Formula: Th = Tmin + k * (1 - Δd/Dmax) * (1 - Eres/Einit)
  * 
  * Higher energy nodes get smaller delay -> forward earlier
  * Higher depth gain -> smaller delay -> forward earlier
@@ -501,22 +497,10 @@ double AquaSimEDBR::CalculateEnergyAwareDelay(double deltaDepth)
     if (depthFactor < 0.0) depthFactor = 0.0;
     if (depthFactor > 1.0) depthFactor = 1.0;
     
-    double delay;
-    
-    if (m_useInverseScaling)
-    {
-        // Form 2: Th = Tmin + k * (1 - Δd/Dmax) * (1 / (Eres/Einit + ε))
-        // Strong energy bias - low energy nodes get very high delay
-        double inverseFactor = 1.0 / (energyRatio + m_epsilon);
-        delay = m_Tmin + m_k * depthFactor * inverseFactor;
-    }
-    else
-    {
-        // Form 1: Th = Tmin + k * (1 - Δd/Dmax) * (1 - Eres/Einit)
-        // Linear energy penalty - high energy means small penalty
-        double energyPenalty = 1.0 - energyRatio;
-        delay = m_Tmin + m_k * depthFactor * energyPenalty;
-    }
+    // Linear Penalty: Th = Tmin + k * (1 - Δd/Dmax) * (1 - Eres/Einit)
+    // High energy means small penalty -> small delay -> forward first
+    double energyPenalty = 1.0 - energyRatio;
+    double delay = m_Tmin + m_k * depthFactor * energyPenalty;
     
     NS_LOG_DEBUG("AquaSimEDBR::CalculateEnergyAwareDelay: "
         << "Eres=" << Eres << " Einit=" << Einit 

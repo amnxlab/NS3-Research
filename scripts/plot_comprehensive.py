@@ -306,7 +306,7 @@ def main():
                 count += 1
     
     # === Special Plot: Energy Consumption for All Protocols ===
-    all_protocols = ['VBF', 'DBR', 'flooding', 'EDBR', 'EVBF']
+    all_protocols = ['VBF', 'DBR', 'flooding', 'EDBR', 'EVBF', 'EDBRv2']
     df_with_protocols = df[df['protocol'].isin(all_protocols)]
     
     if not df_with_protocols.empty and 'nodes' in df_with_protocols.columns:
@@ -335,7 +335,8 @@ def main():
                     'DBR': '#2ECC71',      # Green
                     'flooding': '#9B59B6', # Purple
                     'EDBR': '#FF6B6B',     # Red
-                    'EVBF': '#4ECDC4'      # Teal
+                    'EVBF': '#4ECDC4',     # Teal
+                    'EDBRv2': '#F39C12'    # Orange
                 }
                 
                 for i, protocol in enumerate(grouped.columns):

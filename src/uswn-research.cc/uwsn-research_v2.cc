@@ -253,13 +253,12 @@ main(int argc, char *argv[])
   } else if (protocol == "flooding") {
     asHelper.SetRouting("ns3::AquaSimFloodingRouting");
   } else if (protocol == "EDBR") {
-    // Energy-aware Depth Based Routing
+    // Energy-aware Depth Based Routing (Linear Penalty formula)
     asHelper.SetRouting("ns3::AquaSimEDBR",
                         "Tmin", DoubleValue(0.1),      // Minimum backoff time
                         "K", DoubleValue(4.0),         // Scaling factor
                         "Dmax", DoubleValue(300.0),    // Max useful depth gain
-                        "Epsilon", DoubleValue(0.01),  // Division safeguard
-                        "UseInverseScaling", BooleanValue(false));
+                        "Epsilon", DoubleValue(0.01)); // Division safeguard
   } else if (protocol == "EVBF") {
     // Energy-aware Vector Based Forwarding
     asHelper.SetRouting("ns3::AquaSimEVBF",
@@ -269,6 +268,14 @@ main(int argc, char *argv[])
                         "Tdelay", DoubleValue(0.5),    // Max delay constant
                         "Epsilon", DoubleValue(0.01),  // Division safeguard
                         "UseInverseScaling", BooleanValue(false));
+  } else if (protocol == "EDBRv2") {
+    // Energy-aware DBR with Inverse Scaling formula
+    asHelper.SetRouting("ns3::AquaSimEDBRv2v2",
+                        "Tmin", DoubleValue(0.1),
+                        "K", DoubleValue(4.0),
+                        "Dmax", DoubleValue(300.0),
+                        "Epsilon", DoubleValue(0.01),
+                        "UseInverseScaling", BooleanValue(true));  // Inverse scaling ON
   } else {
     NS_FATAL_ERROR("Unsupported protocol: " << protocol);
   }

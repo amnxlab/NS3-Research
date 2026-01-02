@@ -184,7 +184,7 @@ protected:
     double m_k;             // Scaling factor (default: 4.0s)
     double m_Dmax;          // Max useful depth gain (default: 300m)
     double m_epsilon;       // Division safeguard (default: 0.01)
-    bool m_useInverseScaling; // Use inverse energy formula
+
 
     // Helper objects
     EDBRNeighbTable *m_nTab;
