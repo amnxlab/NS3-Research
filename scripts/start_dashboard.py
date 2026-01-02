@@ -49,8 +49,26 @@ def main():
         public_graphs.unlink()
     public_graphs.symlink_to(real_graphs)
 
-    # 4. Start Combined Server (Web + API on port 8000)
-    print("� Starting Combined Server (port 8000)...")
+    # 4. Install EDBR/EVBF protocols (auto-integration with AquaSim-NG)
+    print("📦 Installing EDBR/EVBF protocols...")
+    install_script = script_dir / "install_edbr_evbf.sh"
+    if install_script.exists():
+        result = subprocess.run(
+            ["bash", str(install_script)],
+            cwd=script_dir,
+            capture_output=True,
+            text=True
+        )
+        if result.returncode == 0:
+            print("✅ EDBR/EVBF protocols installed successfully!")
+        else:
+            print("⚠️  EDBR/EVBF installation had issues (may already be installed)")
+            # Don't fail - protocols might already be installed
+    else:
+        print("⚠️  install_edbr_evbf.sh not found - skipping protocol installation")
+
+    # 5. Start Combined Server (Web + API on port 8000)
+    print("🌐 Starting Combined Server (port 8000)...")
     server_log = open(script_dir / "server.log", "w")
     subprocess.Popen(
         ["python3", "-u", str(script_dir / "combined_server.py")],

@@ -158,10 +158,17 @@ class CombinedHandler(http.server.BaseHTTPRequestHandler):
             safe_path = path.lstrip('/')
             file_path = PUBLIC_DIR / safe_path
             
-            # Resolve the path and ensure it's within PUBLIC_DIR
+            # Resolve the path and check access
             try:
                 file_path = file_path.resolve()
-                if not str(file_path).startswith(str(PUBLIC_DIR.resolve())):
+                public_resolved = PUBLIC_DIR.resolve()
+                graphs_resolved = GRAPHS_DIR.resolve()
+                
+                # Allow access to PUBLIC_DIR or GRAPHS_DIR (for symlinks)
+                is_in_public = str(file_path).startswith(str(public_resolved))
+                is_in_graphs = str(file_path).startswith(str(graphs_resolved))
+                
+                if not (is_in_public or is_in_graphs):
                     self.send_error(403, 'Forbidden')
                     return
             except:

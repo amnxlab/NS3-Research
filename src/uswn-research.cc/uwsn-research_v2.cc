@@ -252,6 +252,23 @@ main(int argc, char *argv[])
     // Depth variation (Parameter 3) affects DBR through node placement
   } else if (protocol == "flooding") {
     asHelper.SetRouting("ns3::AquaSimFloodingRouting");
+  } else if (protocol == "EDBR") {
+    // Energy-aware Depth Based Routing
+    asHelper.SetRouting("ns3::AquaSimEDBR",
+                        "Tmin", DoubleValue(0.1),      // Minimum backoff time
+                        "K", DoubleValue(4.0),         // Scaling factor
+                        "Dmax", DoubleValue(300.0),    // Max useful depth gain
+                        "Epsilon", DoubleValue(0.01),  // Division safeguard
+                        "UseInverseScaling", BooleanValue(false));
+  } else if (protocol == "EVBF") {
+    // Energy-aware Vector Based Forwarding
+    asHelper.SetRouting("ns3::AquaSimEVBF",
+                        "Width", DoubleValue(vbfWidth),
+                        "TargetPos", Vector3DValue(Vector(sinkX, sinkY, sinkZ)),
+                        "Beta", DoubleValue(0.5),      // Energy bias factor
+                        "Tdelay", DoubleValue(0.5),    // Max delay constant
+                        "Epsilon", DoubleValue(0.01),  // Division safeguard
+                        "UseInverseScaling", BooleanValue(false));
   } else {
     NS_FATAL_ERROR("Unsupported protocol: " << protocol);
   }
