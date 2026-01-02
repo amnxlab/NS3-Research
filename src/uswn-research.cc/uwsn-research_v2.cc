@@ -266,8 +266,7 @@ main(int argc, char *argv[])
                         "TargetPos", Vector3DValue(Vector(sinkX, sinkY, sinkZ)),
                         "Beta", DoubleValue(0.5),      // Energy bias factor
                         "Tdelay", DoubleValue(0.5),    // Max delay constant
-                        "Epsilon", DoubleValue(0.01),  // Division safeguard
-                        "UseInverseScaling", BooleanValue(false));
+                        "Epsilon", DoubleValue(0.01));  // Division safeguard
   } else if (protocol == "EDBRv2") {
     // Energy-aware DBR with Inverse Scaling formula
     asHelper.SetRouting("ns3::AquaSimEDBRv2v2",

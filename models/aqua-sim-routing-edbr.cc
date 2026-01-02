@@ -12,10 +12,6 @@
  *    Th = Tmin + k * (1 - Δd/Dmax) * (1 - Eres/Einit)
  *    - Uses a linear energy penalty.
  *
- * 2. Inverse Scaling (Optional, enabled via Attribute):
- *    Th = Tmin + k * (1 - Δd/Dmax) * (1 / (Eres/Einit + ε))
- *    - Uses an inverse scaling for stronger energy bias.
- *
  * Author: Research Implementation
  */
 
