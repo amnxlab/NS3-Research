@@ -305,57 +305,62 @@ def main():
                 generate_grouped_bar_plot(df, x_var, y_var, output_dir, result_filename_stem)
                 count += 1
     
-    # === Special Plot: Energy Consumption for EDBR/EVBF Only ===
-    energy_aware_protocols = ['EDBR', 'EVBF']
-    df_energy_aware = df[df['protocol'].isin(energy_aware_protocols)]
+    # === Special Plot: Energy Consumption for All Protocols ===
+    all_protocols = ['VBF', 'DBR', 'flooding', 'EDBR', 'EVBF']
+    df_with_protocols = df[df['protocol'].isin(all_protocols)]
     
-    if not df_energy_aware.empty and 'nodes' in df_energy_aware.columns:
+    if not df_with_protocols.empty and 'nodes' in df_with_protocols.columns:
         # Calculate total consumed energy if not present
-        if 'total_consumed_energy' not in df_energy_aware.columns:
-            if 'total_initial_energy' in df_energy_aware.columns and 'total_residual_energy' in df_energy_aware.columns:
-                df_energy_aware = df_energy_aware.copy()
-                df_energy_aware['total_consumed_energy'] = df_energy_aware['total_initial_energy'] - df_energy_aware['total_residual_energy']
+        if 'total_consumed_energy' not in df_with_protocols.columns:
+            if 'total_initial_energy' in df_with_protocols.columns and 'total_residual_energy' in df_with_protocols.columns:
+                df_with_protocols = df_with_protocols.copy()
+                df_with_protocols['total_consumed_energy'] = df_with_protocols['total_initial_energy'] - df_with_protocols['total_residual_energy']
         
-        if 'total_consumed_energy' in df_energy_aware.columns:
-            # Generate the energy consumption plot for EDBR/EVBF
-            print(f"Generating Energy Consumption plot for EDBR/EVBF...")
-            
-            plt.figure(figsize=(12, 7))
+        if 'total_consumed_energy' in df_with_protocols.columns:
+            # Generate the energy consumption plot for all protocols
+            print(f"Generating Energy Consumption plot for all protocols...")
             
             # Group by nodes and protocol
-            grouped = df_energy_aware.groupby(['nodes', 'protocol'])['total_consumed_energy'].mean().unstack()
+            grouped = df_with_protocols.groupby(['nodes', 'protocol'])['total_consumed_energy'].mean().unstack()
             
             if not grouped.empty:
                 x = np.arange(len(grouped.index))
-                width = 0.35
+                n_protocols = len(grouped.columns)
+                width = 0.8 / n_protocols
                 
-                fig, ax = plt.subplots(figsize=(12, 7))
+                fig, ax = plt.subplots(figsize=(14, 8))
                 
-                colors = {'EDBR': '#FF6B6B', 'EVBF': '#4ECDC4'}
+                colors = {
+                    'VBF': '#3498DB',      # Blue
+                    'DBR': '#2ECC71',      # Green
+                    'flooding': '#9B59B6', # Purple
+                    'EDBR': '#FF6B6B',     # Red
+                    'EVBF': '#4ECDC4'      # Teal
+                }
                 
-                for i, protocol in enumerate(energy_aware_protocols):
-                    if protocol in grouped.columns:
-                        bars = ax.bar(x + i * width, grouped[protocol], width, 
-                                     label=protocol, color=colors.get(protocol, f'C{i}'),
-                                     edgecolor='white', linewidth=0.8)
-                        # Add value labels
-                        for bar in bars:
-                            height = bar.get_height()
-                            ax.annotate(f'{height:.1f}',
-                                       xy=(bar.get_x() + bar.get_width() / 2, height),
-                                       xytext=(0, 3), textcoords="offset points",
-                                       ha='center', va='bottom', fontsize=9)
+                for i, protocol in enumerate(grouped.columns):
+                    offset = (i - n_protocols/2 + 0.5) * width
+                    bars = ax.bar(x + offset, grouped[protocol], width, 
+                                 label=protocol, color=colors.get(protocol, f'C{i}'),
+                                 edgecolor='white', linewidth=0.8)
+                    # Add value labels
+                    for bar in bars:
+                        height = bar.get_height()
+                        ax.annotate(f'{height:.0f}',
+                                   xy=(bar.get_x() + bar.get_width() / 2, height),
+                                   xytext=(0, 3), textcoords="offset points",
+                                   ha='center', va='bottom', fontsize=8)
                 
                 ax.set_xlabel('Number of Nodes', fontsize=12, fontweight='bold')
                 ax.set_ylabel('Total Energy Consumed (Joules)', fontsize=12, fontweight='bold')
-                ax.set_title('Energy Consumption vs Node Count (EDBR/EVBF Only)', fontsize=14, fontweight='bold')
-                ax.set_xticks(x + width / 2)
+                ax.set_title('Energy Consumption vs Node Count (All Protocols)', fontsize=14, fontweight='bold')
+                ax.set_xticks(x)
                 ax.set_xticklabels(grouped.index.astype(int))
                 ax.legend(title='Protocol', loc='upper left')
                 ax.grid(axis='y', alpha=0.3)
                 
                 plt.tight_layout()
-                output_path = os.path.join(output_dir, 'Energy_Consumption_EDBR_EVBF.png')
+                output_path = os.path.join(output_dir, 'Energy_Consumption_All_Protocols.png')
                 plt.savefig(output_path, dpi=150, bbox_inches='tight', facecolor='white')
                 plt.close()
                 print(f"  Saved: {output_path}")
