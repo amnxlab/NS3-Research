@@ -1,17 +1,19 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /*
  * Energy-Aware Vector Based Forwarding (EVBF) for AquaSim-NG
- * 
- * This protocol extends VBF by incorporating residual energy into the 
- * desirableness factor (alpha) calculation. Higher-energy nodes get
- * lower delay and thus forward packets earlier.
- * 
- * Based on the paper formulas:
- * Form 1 (Linear Penalty): α' = α * [1 + β * (1 - Eres/Einit)]
- * Form 2 (Inverse Scaling): α' = α / (Eres/Einit + ε)
- * 
- * Final delay: Th = √α' * Tdelay + (R - d) / V0
- * 
+ *
+ * This protocol extends the VBF algorithm by modifying the "desirableness factor" (alpha)
+ * based on the node's residual energy. In VBF, alpha determines the holding time;
+ * lower alpha means shorter delay. EVBF reduces alpha for nodes with high energy,
+ * making them more likely to forward packets.
+ *
+ * Formula Used (Linear Penalty):
+ *    α' = α * [1 + β * (1 - Eres/Einit)]
+ *    - Increases alpha (delay) linearly as energy depletes.
+ *
+ * Final Delay Calculation:
+ *    Th = √α' * Tdelay + (R - d) / V0
+ *
  * Author: Research Implementation
  */
 
@@ -226,7 +228,6 @@ AquaSimEVBF::AquaSimEVBF()
     m_beta = 0.5;
     m_Tdelay = 0.5;
     m_epsilon = 0.01;
-    m_useInverseScaling = false;
 }
 
 TypeId AquaSimEVBF::GetTypeId(void)
@@ -263,10 +264,7 @@ TypeId AquaSimEVBF::GetTypeId(void)
             DoubleValue(0.01),
             MakeDoubleAccessor(&AquaSimEVBF::m_epsilon),
             MakeDoubleChecker<double>())
-        .AddAttribute("UseInverseScaling", "Use inverse energy scaling formula",
-            BooleanValue(false),
-            MakeBooleanAccessor(&AquaSimEVBF::m_useInverseScaling),
-            MakeBooleanChecker())
+
     ;
     return tid;
 }
@@ -775,20 +773,10 @@ double AquaSimEVBF::CalculateEnergyAwareDelay(Ptr<Packet> pkt, Vector* p1)
     if (energyRatio > 1.0) energyRatio = 1.0;
     if (energyRatio < 0.0) energyRatio = 0.0;
     
-    double alphaPrime;
-    
-    if (m_useInverseScaling)
-    {
-        // Form 2: α' = α / (Eres/Einit + ε)
-        // Strong energy bias - low energy nodes get very high delay
-        alphaPrime = alpha / (energyRatio + m_epsilon);
-    }
-    else
-    {
-        // Form 1: α' = α * [1 + β * (1 - Eres/Einit)]
-        // Linear energy penalty - low energy nodes get higher delay
-        alphaPrime = alpha * (1.0 + m_beta * (1.0 - energyRatio));
-    }
+    // Form 1: α' = α * [1 + β * (1 - Eres/Einit)]
+    // Linear energy penalty - low energy nodes get higher delay
+    double alphaPrime = alpha * (1.0 + m_beta * (1.0 - energyRatio));
+
     // ========== END EVBF ==========
     
     NS_LOG_DEBUG("CalculateEnergyAwareDelay(" << GetNetDevice()->GetAddress() 

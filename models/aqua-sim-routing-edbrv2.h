@@ -1,15 +1,22 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /*
- * Energy-Aware Depth Based Routing (EDBRv2) for AquaSim-NG
- * 
- * This protocol extends DBR by incorporating residual energy into the 
- * packet holding time calculation. Higher-energy nodes forward packets 
- * earlier, balancing energy consumption across the network.
- * 
- * Based on the paper formulas:
- * Form 1 (Linear Penalty): Th = Tmin + k * (1 - Δd/Dmax) * (1 - Eres/Einit)
- * Form 2 (Inverse Scaling): Th = Tmin + k * (1 - Δd/Dmax) * (1 / (Eres/Einit + ε))
- * 
+ * Energy-Aware Depth Based Routing v2 (EDBRv2) for AquaSim-NG
+ *
+ * This version of EDBR is configured by default to use the "Inverse Scaling" formula,
+ * providing a stronger bias against low-energy nodes compared to the linear model.
+ * It inherits from the base EDBR structure but defaults to the more aggressive
+ * energy conservation strategy.
+ *
+ * Formula Used (Inverse Scaling):
+ *    Th = Tmin + k * (1 - Δd/Dmax) * (1 / (Eres/Einit + ε))
+ *
+ * Member Variables:
+ * - m_Tmin: Minimum holding time
+ * - m_k: Scaling factor
+ * - m_Dmax: Max depth gain
+ * - m_epsilon: Division safeguard
+ * - m_useInverseScaling: Set to true by default for this variant.
+ *
  * Author: Research Implementation
  */
 

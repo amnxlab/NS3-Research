@@ -1,17 +1,24 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /*
  * Energy-Aware Vector Based Forwarding (EVBF) for AquaSim-NG
- * 
- * This protocol extends VBF by incorporating residual energy into the 
- * desirableness factor (alpha) calculation. Higher-energy nodes get
- * lower delay and thus forward packets earlier.
- * 
- * Based on the paper formulas:
- * Form 1 (Linear Penalty): α' = α * [1 + β * (1 - Eres/Einit)]
- * Form 2 (Inverse Scaling): α' = α / (Eres/Einit + ε)
- * 
- * Final delay: Th = √α' * Tdelay + (R - d) / V0
- * 
+ *
+ * This protocol extends the VBF algorithm by modifying the "desirableness factor" (alpha)
+ * based on the node's residual energy. In VBF, alpha determines the holding time;
+ * lower alpha means shorter delay. EVBF reduces alpha for nodes with high energy,
+ * making them more likely to forward packets.
+ *
+ * Formula Used (Linear Penalty):
+ *    α' = α * [1 + β * (1 - Eres/Einit)]
+ *    - Increases alpha (delay) linearly as energy depletes.
+ *
+ * Final Delay Calculation:
+ *    Th = √α' * Tdelay + (R - d) / V0
+ *
+ * Member Variables:
+ * - m_beta: Energy bias factor (default: 0.5)
+ * - m_Tdelay: Maximum delay constant (default: 0.5s)
+ * - m_epsilon: Division safeguard (default: 0.01)
+ *
  * Author: Research Implementation
  */
 
@@ -113,7 +120,7 @@ protected:
     double m_beta;          // Energy bias factor (default: 0.5)
     double m_Tdelay;        // Max delay constant (default: 0.5s)
     double m_epsilon;       // Division safeguard (default: 0.01)
-    bool m_useInverseScaling; // Use inverse energy formula
+
 
     // Core functions
     void Terminate();
