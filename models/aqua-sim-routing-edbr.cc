@@ -931,6 +931,7 @@ void AquaSimEDBR::HandlePktForward(Ptr<Packet> p)
     {
         m_pq.insert(q);
         m_latest = expected_send_time;
+        if (m_sendTimer->IsRunning()) m_sendTimer->Cancel();
         m_sendTimer->Schedule(Seconds(delay));
     }
     else
@@ -941,6 +942,7 @@ void AquaSimEDBR::HandlePktForward(Ptr<Packet> p)
             if (expected_send_time < m_latest)
             {
                 m_latest = expected_send_time;
+                if (m_sendTimer->IsRunning()) m_sendTimer->Cancel();
                 m_sendTimer->Schedule(Seconds(delay));
             }
         }
