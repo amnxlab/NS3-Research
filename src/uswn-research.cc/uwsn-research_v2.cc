@@ -159,7 +159,7 @@ main(int argc, char *argv[])
 
   // ==== EDITED: Add command line options for the 5 parameters ====
   CommandLine cmd;
-  cmd.AddValue("protocol", "Protocol: VBF, DBR, flooding", protocol);
+  cmd.AddValue("protocol", "Protocol: VBF, DBR, flooding ,EDBR ,EVBF,EDBRv2v2", protocol);
   cmd.AddValue("runNumber", "Run number", runNumber);
   cmd.AddValue("simStop", "Simulation stop time", simStop);
   
