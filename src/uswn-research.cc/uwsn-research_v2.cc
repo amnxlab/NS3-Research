@@ -275,6 +275,14 @@ main(int argc, char *argv[])
                         "Dmax", DoubleValue(300.0),
                         "Epsilon", DoubleValue(0.01),
                         "UseInverseScaling", BooleanValue(true));  // Inverse scaling ON
+  } else if (protocol == "EVBFv2") {
+    // Energy-aware VBF with Inverse Scaling formula
+    asHelper.SetRouting("ns3::AquaSimEVBFv2",
+                        "Width", DoubleValue(vbfWidth),
+                        "TargetPos", Vector3DValue(Vector(sinkX, sinkY, sinkZ)),
+                        "Beta", DoubleValue(0.5),      // Kept for compatibility
+                        "Tdelay", DoubleValue(0.5),    // Max delay constant
+                        "Epsilon", DoubleValue(0.01)); // Division safeguard
   } else {
     NS_FATAL_ERROR("Unsupported protocol: " << protocol);
   }

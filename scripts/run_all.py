@@ -516,8 +516,8 @@ def main():
         help=f"Number of runs per configuration (default: {DEFAULT_RUNS})"
     )
     parser.add_argument(
-        "--protocols", nargs='+', default=["VBF", "DBR", "flooding", "EDBR", "EVBF", "EDBRv2"],
-        help="Protocols to test (default: VBF DBR flooding EDBR EVBF EDBRv2)"
+        "--protocols", nargs='+', default=["VBF", "DBR", "flooding", "EDBR", "EVBF", "EDBRv2", "EVBFv2"],
+        help="Protocols to test (default: VBF DBR flooding EDBR EVBF EDBRv2 EVBFv2)"
     )
     parser.add_argument(
         "--nodes", nargs='+', type=int, default=[100],

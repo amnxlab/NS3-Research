@@ -101,6 +101,19 @@ else
     echo "Added aqua-sim-routing-edbrv2.cc to sources"
 fi
 
+# Copy EVBFv2 files
+echo ""
+echo "Copying EVBFv2 files..."
+cp -v "$MODELS_DIR/aqua-sim-routing-evbfv2.h" "$AQUASIM_MODEL_DIR/"
+cp -v "$MODELS_DIR/aqua-sim-routing-evbfv2.cc" "$AQUASIM_MODEL_DIR/"
+
+if grep -q "aqua-sim-routing-evbfv2" "$CMAKE_FILE"; then
+    echo "EVBFv2 already in CMakeLists.txt - skipping"
+else
+    sed -i '/model\/aqua-sim-routing-evbf.cc/a\    model/aqua-sim-routing-evbfv2.cc' "$CMAKE_FILE"
+    echo "Added aqua-sim-routing-evbfv2.cc to sources"
+fi
+
 # Update header includes
 if grep -q "model\/aqua-sim-routing-edbr.h" "$CMAKE_FILE"; then
     echo "EDBR header already in CMakeLists.txt - skipping"
@@ -121,6 +134,13 @@ if grep -q "model\/aqua-sim-routing-edbrv2.h" "$CMAKE_FILE"; then
 else
     sed -i '/model\/aqua-sim-routing-edbr.h/a\    model/aqua-sim-routing-edbrv2.h' "$CMAKE_FILE"
     echo "Added aqua-sim-routing-edbrv2.h to headers"
+fi
+
+if grep -q "model\/aqua-sim-routing-evbfv2.h" "$CMAKE_FILE"; then
+    echo "EVBFv2 header already in CMakeLists.txt - skipping"
+else
+    sed -i '/model\/aqua-sim-routing-evbf.h/a\    model/aqua-sim-routing-evbfv2.h' "$CMAKE_FILE"
+    echo "Added aqua-sim-routing-evbfv2.h to headers"
 fi
 
 # Rebuild NS-3
