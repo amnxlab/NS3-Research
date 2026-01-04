@@ -306,7 +306,8 @@ def main():
                 count += 1
     
     # === Special Plot: Energy Consumption for All Protocols ===
-    all_protocols = ['VBF', 'DBR', 'flooding', 'EDBR', 'EVBF', 'EDBRv2', 'EVBFv2']
+    all_protocols = ['VBF', 'DBR', 'flooding', 'EDBR', 'EVBF', 'EDBRv2', 'EVBFv2', 
+                     'EDBRv3', 'EVBFv3', 'EDBRv4', 'EVBFv4']
     df_with_protocols = df[df['protocol'].isin(all_protocols)]
     
     if not df_with_protocols.empty and 'nodes' in df_with_protocols.columns:
@@ -328,7 +329,7 @@ def main():
                 n_protocols = len(grouped.columns)
                 width = 0.8 / n_protocols
                 
-                fig, ax = plt.subplots(figsize=(14, 8))
+                fig, ax = plt.subplots(figsize=(16, 8))
                 
                 colors = {
                     'VBF': '#3498DB',      # Blue
@@ -337,7 +338,11 @@ def main():
                     'EDBR': '#FF6B6B',     # Red
                     'EVBF': '#4ECDC4',     # Teal
                     'EDBRv2': '#F39C12',   # Orange
-                    'EVBFv2': '#1ABC9C'    # Turquoise
+                    'EVBFv2': '#1ABC9C',   # Turquoise
+                    'EDBRv3': '#E74C3C',   # Dark Red (Linear SNR)
+                    'EVBFv3': '#16A085',   # Dark Teal (Linear SNR)
+                    'EDBRv4': '#C0392B',   # Crimson (Inverse SNR)
+                    'EVBFv4': '#27AE60'    # Emerald (Inverse SNR)
                 }
                 
                 for i, protocol in enumerate(grouped.columns):
