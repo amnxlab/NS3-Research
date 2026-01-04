@@ -332,17 +332,20 @@ def main():
                 fig, ax = plt.subplots(figsize=(16, 8))
                 
                 colors = {
-                    'VBF': '#3498DB',      # Blue
-                    'DBR': '#2ECC71',      # Green
-                    'flooding': '#9B59B6', # Purple
-                    'EDBR': '#FF6B6B',     # Red
-                    'EVBF': '#4ECDC4',     # Teal
-                    'EDBRv2': '#F39C12',   # Orange
-                    'EVBFv2': '#7F8C8D',   # Grey
-                    'EDBRv3': '#E74C3C',   # Dark Red (Linear SNR)
-                    'EVBFv3': '#16A085',   # Dark Teal (Linear SNR)
-                    'EDBRv4': '#C0392B',   # Crimson (Inverse SNR)
-                    'EVBFv4': '#27AE60'    # Emerald (Inverse SNR)
+                    # Base Protocols
+                    'VBF': '#2196F3',      # Blue
+                    'DBR': '#4CAF50',      # Green
+                    'flooding': '#9C27B0', # Purple
+                    # EDBR Family (Warm Colors)
+                    'EDBR': '#F44336',     # Red
+                    'EDBRv2': '#FF5722',   # Deep Orange
+                    'EDBRv3': '#FFC107',   # Amber
+                    'EDBRv4': '#795548',   # Brown
+                    # EVBF Family (Cool Colors)
+                    'EVBF': '#00BCD4',     # Cyan
+                    'EVBFv2': '#607D8B',   # Blue Grey
+                    'EVBFv3': '#3F51B5',   # Indigo
+                    'EVBFv4': '#009688'    # Teal
                 }
                 
                 for i, protocol in enumerate(grouped.columns):
