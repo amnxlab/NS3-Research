@@ -338,7 +338,7 @@ def main():
                     'EDBR': '#FF6B6B',     # Red
                     'EVBF': '#4ECDC4',     # Teal
                     'EDBRv2': '#F39C12',   # Orange
-                    'EVBFv2': '#1ABC9C',   # Turquoise
+                    'EVBFv2': '#7F8C8D',   # Grey
                     'EDBRv3': '#E74C3C',   # Dark Red (Linear SNR)
                     'EVBFv3': '#16A085',   # Dark Teal (Linear SNR)
                     'EDBRv4': '#C0392B',   # Crimson (Inverse SNR)
