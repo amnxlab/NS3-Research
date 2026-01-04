@@ -159,7 +159,7 @@ main(int argc, char *argv[])
 
   // ==== EDITED: Add command line options for the 5 parameters ====
   CommandLine cmd;
-  cmd.AddValue("protocol", "Protocol: VBF, DBR, flooding ,EDBR ,EVBF,EDBRv2v2", protocol);
+  cmd.AddValue("protocol", "Protocol: VBF, DBR, flooding, EDBR, EVBF, EDBRv2, EVBFv2, EDBRv3, EVBFv3, EDBRv4, EVBFv4", protocol);
   cmd.AddValue("runNumber", "Run number", runNumber);
   cmd.AddValue("simStop", "Simulation stop time", simStop);
   
@@ -283,6 +283,46 @@ main(int argc, char *argv[])
                         "Beta", DoubleValue(0.5),      // Kept for compatibility
                         "Tdelay", DoubleValue(0.5),    // Max delay constant
                         "Epsilon", DoubleValue(0.01)); // Division safeguard
+  } else if (protocol == "EDBRv3") {
+    // Energy+SNR-aware DBR (v3 LINEAR formula)
+    asHelper.SetRouting("ns3::AquaSimEDBRv3",
+                        "Tmin", DoubleValue(0.1),
+                        "K", DoubleValue(4.0),
+                        "Dmax", DoubleValue(500.0),
+                        "SnrMax", DoubleValue(100.0),
+                        "SnrMin", DoubleValue(10.0));
+  } else if (protocol == "EVBFv3") {
+    // Energy+SNR-aware VBF (v3 LINEAR formula)
+    asHelper.SetRouting("ns3::AquaSimEVBFv3",
+                        "Width", DoubleValue(vbfWidth),
+                        "TargetPos", Vector3DValue(Vector(sinkX, sinkY, sinkZ)),
+                        "Beta", DoubleValue(0.5),
+                        "Delta", DoubleValue(0.5),
+                        "Tdelay", DoubleValue(0.5),
+                        "SnrMax", DoubleValue(100.0),
+                        "SnrMin", DoubleValue(10.0),
+                        "V0", DoubleValue(1500.0));
+  } else if (protocol == "EDBRv4") {
+    // Energy+SNR-aware DBR (v4 INVERSE formula)
+    asHelper.SetRouting("ns3::AquaSimEDBRv4",
+                        "Tmin", DoubleValue(0.1),
+                        "K", DoubleValue(4.0),
+                        "Dmax", DoubleValue(500.0),
+                        "EpsilonE", DoubleValue(0.01),
+                        "EpsilonS", DoubleValue(0.01),
+                        "SnrMax", DoubleValue(100.0),
+                        "SnrMin", DoubleValue(10.0));
+  } else if (protocol == "EVBFv4") {
+    // Energy+SNR-aware VBF (v4 INVERSE formula)
+    asHelper.SetRouting("ns3::AquaSimEVBFv4",
+                        "Width", DoubleValue(vbfWidth),
+                        "TargetPos", Vector3DValue(Vector(sinkX, sinkY, sinkZ)),
+                        "Tdelay", DoubleValue(0.5),
+                        "EpsilonE", DoubleValue(0.01),
+                        "EpsilonS", DoubleValue(0.01),
+                        "SnrMax", DoubleValue(100.0),
+                        "SnrMin", DoubleValue(10.0),
+                        "V0", DoubleValue(1500.0));
   } else {
     NS_FATAL_ERROR("Unsupported protocol: " << protocol);
   }

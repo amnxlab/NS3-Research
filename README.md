@@ -1,7 +1,12 @@
 # 🌊 UWSN Simulation Dashboard
 
-**Underwater Wireless Sensor Network (UWSN) protocol comparison framework using NS-3/AquaSim-NG.**  
-Compare **7 routing protocols** including original (VBF, DBR, Flooding) and energy-aware variants (EDBR, EDBRv2, EVBF, EVBFv2) with automated parameter sweeping, real-time visualization, and network lifetime analytics.
+**v0.7** | Underwater Wireless Sensor Network (UWSN) protocol comparison framework using NS-3/AquaSim-NG.  
+
+Compare **11 routing protocols** including original (VBF, DBR, Flooding), energy-aware variants (EDBR, EDBRv2, EVBF, EVBFv2), and **SNR+Energy-aware variants** (EDBRv3, EDBRv4, EVBFv3, EVBFv4) with automated parameter sweeping, real-time visualization, and network lifetime analytics.
+
+**Author:** Eng. Ahmed Amin  
+**Website:** [amnxlab.site](https://www.amnxlab.site/)  
+**GitHub:** [github.com/amnxlab](https://github.com/amnxlab)
 
 ---
 
@@ -13,15 +18,7 @@ python3 scripts/start_dashboard.py
 
 Open **http://localhost:8000** in your browser.
 
-> **Note**: On first run, the dashboard automatically installs all energy-aware protocols (EDBR, EDBRv2, EVBF, EVBFv2) to AquaSim-NG.
-
-### Running Your First Simulation
-1. **Select Protocols**: Check any combination of 7 available protocols
-2. **Configure Parameters**: Use default values or click `[+]` to add multiple values for sweeps
-3. **Click "Initiate Simulation"**
-4. **View Results**: 
-   - Real-time console output streams automatically
-   - Click **"📊 View Graphics Gallery"** to see generated plots
+> **Note**: On first run, the dashboard automatically installs all energy-aware protocols to AquaSim-NG.
 
 ---
 
@@ -39,67 +36,86 @@ Open **http://localhost:8000** in your browser.
 
 | Protocol | Base | Formula Type | Description |
 |----------|------|--------------|-------------|
-| **EDBR** | DBR | Linear Penalty | Energy-aware DBR with linear energy penalty |
-| **EDBRv2** | DBR | Inverse Scaling | Energy-aware DBR with inverse scaling |
-| **EVBF** | VBF | Linear Penalty | Energy-aware VBF with linear energy penalty |
-| **EVBFv2** | VBF | Inverse Scaling | Energy-aware VBF with inverse scaling |
+| **EDBR** | DBR | Linear Energy | Energy-aware DBR with linear energy penalty |
+| **EDBRv2** | DBR | Inverse Energy | Energy-aware DBR with inverse scaling |
+| **EVBF** | VBF | Linear Energy | Energy-aware VBF with linear energy penalty |
+| **EVBFv2** | VBF | Inverse Energy | Energy-aware VBF with inverse scaling |
+
+### 🆕 SNR+Energy-Aware Protocols (v0.7)
+
+| Protocol | Base | Formula Type | Description |
+|----------|------|--------------|-------------|
+| **EDBRv3** | DBR | Linear SNR+Energy | Considers both energy AND link quality (SNR) |
+| **EDBRv4** | DBR | Inverse SNR+Energy | Inverse scaling with SNR factor |
+| **EVBFv3** | VBF | Linear SNR+Energy | Considers both energy AND link quality (SNR) |
+| **EVBFv4** | VBF | Inverse SNR+Energy | Inverse scaling with SNR factor |
 
 ---
 
-## 📐 Energy-Aware Formulas
+## 📐 Protocol Formulas
 
-### Formula Comparison
-
-| Type | Formula | Behavior |
-|------|---------|----------|
-| **Linear Penalty** | `α' = α × [1 + β × (1 - E)]` | Delay increases linearly as energy depletes |
-| **Inverse Scaling** | `α' = α / (E + ε)` | Delay increases exponentially as energy depletes |
-
-Where:
-- `α` = Original desirableness/priority factor
-- `E` = `Eres/Einit` (energy ratio, 0 to 1)
-- `β` = Energy bias factor (default: 0.5)
-- `ε` = Small constant to prevent division by zero (default: 0.01)
-
-### EDBR/EDBRv2 (DBR-based)
-
-Modifies the **holding time** before forwarding:
+### Normalization
 
 ```
-EDBR (Linear):    Th = Tmin + k × (1 - Δd/Dmax) × (1 - Eres/Einit)
-EDBRv2 (Inverse): Th = Tmin + k × (1 - Δd/Dmax) × (1 / (Eres/Einit + ε))
+QE = Eres / Einit                                           (Energy ratio)
+Qsnr = 0                          if SNR < SNR_min
+Qsnr = min(1, max(0, SNR/SNRmax)) otherwise                 (SNR quality)
 ```
 
-Parameters:
-- `Tmin` = Minimum backoff time (default: 0.1s)
-- `k` = Scaling factor (default: 4.0)
-- `Dmax` = Maximum useful depth gain (default: 300m)
-
-### EVBF/EVBFv2 (VBF-based)
-
-Modifies the **desirableness factor** (α) that determines priority:
+### EDBR/EDBRv2 (Energy-only)
 
 ```
-EVBF (Linear):    α' = α × [1 + β × (1 - Eres/Einit)]
-EVBFv2 (Inverse): α' = α / (Eres/Einit + ε)
+EDBR (Linear):    Th = Tmin + k × (1 - Δd/Dmax) × (1 - QE)
+EDBRv2 (Inverse): Th = Tmin + k × (1 - Δd/Dmax) / (QE + ε)
 ```
 
-Parameters:
-- `β` = Energy bias factor (default: 0.5)
-- `Tdelay` = Maximum delay constant (default: 0.5s)
+### EDBRv3/EDBRv4 (SNR+Energy)
 
-**Effect**: Higher-energy nodes get lower delay → forward packets first → balanced network energy consumption.
+```
+EDBRv3 (Linear):  Th = Tmin + k × (1 - Δd/Dmax) × (1 - QE) × (1 - Qsnr)
+EDBRv4 (Inverse): Th = Tmin + k × (1 - Δd/Dmax) / ((QE + εE) × (Qsnr + εS))
+```
+
+### EVBF/EVBFv2 (Energy-only)
+
+```
+EVBF (Linear):    α' = α × (1 + β × (1 - QE))
+EVBFv2 (Inverse): α' = α / (QE + ε)
+```
+
+### EVBFv3/EVBFv4 (SNR+Energy)
+
+```
+EVBFv3 (Linear):  α' = α × (1 + β × (1 - QE)) × (1 + δ × (1 - Qsnr))
+EVBFv4 (Inverse): α' = α / ((QE + εE) × (Qsnr + εS))
+
+Final delay:      Th = √α' × Tdelay + (range - d) / v0
+```
+
+### Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `Tmin` | 0.1s | Minimum backoff time |
+| `k` | 4.0 | Scaling factor |
+| `Dmax` | 300m | Maximum useful depth gain |
+| `β` | 0.5 | Energy bias factor |
+| `δ` | 0.5 | SNR bias factor |
+| `εE`, `εS` | 0.01 | Division safeguards |
+| `SNRmax` | 100.0 | Maximum SNR for normalization |
+| `SNRmin` | 10.0 | Minimum acceptable SNR threshold |
+| `v0` | 1500 m/s | Sound speed in water |
 
 ---
 
 ## ✨ Key Features
 
 ### 🖥️ Web Dashboard
-- **Persistent Execution**: Simulations survive page reloads - the dashboard auto-reconnects
-- **Dynamic Parameter Sweeps**: Add multiple values for any parameter using `[+]` buttons
-- **Real-Time Console**: Unfiltered CLI output streamed directly to browser
-- **Integrated Gallery**: Built-in lightbox for viewing all generated plots
-- **Auto-Install**: All energy-aware protocols automatically installed on first run
+- **Persistent Execution**: Simulations survive page reloads
+- **Dynamic Parameter Sweeps**: Add multiple values using `[+]` buttons
+- **Real-Time Console**: Unfiltered CLI output streamed to browser
+- **Integrated Gallery**: Built-in lightbox for generated plots
+- **Auto-Install**: All protocols automatically installed on first run
 
 ### 📊 Analytics & Visualization
 - **Network Lifetime**: Tracks when first nodes die over time
@@ -113,7 +129,7 @@ Parameters:
 ## ⚙️ Configuration
 
 ### Sweepable Parameters
-Click `[+]` to add multiple values - the system runs all combinations automatically.
+Click `[+]` to add multiple values - runs all combinations automatically.
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
@@ -125,12 +141,6 @@ Click `[+]` to add multiple values - the system runs all combinations automatica
 | **Min/Max Z** | 0-400m | Depth range |
 | **VBF Width** | 100m | VBF/EVBF routing pipe radius |
 
-### Single-Value Parameters
-| Parameter | Options | Description |
-|-----------|---------|-------------|
-| **Runs** | 15 | Iterations per config (for averaging) |
-| **Mobility** | random/fixed | Node movement model |
-
 ---
 
 ## 📁 Project Structure
@@ -138,28 +148,28 @@ Click `[+]` to add multiple values - the system runs all combinations automatica
 ```
 NS3-Research/
 ├── scripts/
-│   ├── start_dashboard.py      # 🚀 Main launcher (auto-installs protocols)
-│   ├── combined_server.py      # Backend (Web + API on port 8000)
+│   ├── start_dashboard.py      # 🚀 Main launcher
+│   ├── combined_server.py      # Backend (Web + API)
 │   ├── run_all.py              # Core simulation driver
-│   ├── install_edbr_evbf.sh    # Protocol installer for AquaSim-NG
+│   ├── install_edbr_evbf.sh    # Protocol installer
 │   ├── plot_comprehensive.py   # Visualization generator
-│   ├── public/
-│   │   └── index.html          # Frontend UI
-│   ├── graphs/                 # Generated plots
-│   └── traces/                 # Network lifetime traces
+│   └── public/index.html       # Frontend UI
 │
 ├── models/                     # Routing protocol source files
-│   ├── aqua-sim-routing-edbr.*     # EDBR (Linear Penalty)
-│   ├── aqua-sim-routing-edbrv2.*   # EDBRv2 (Inverse Scaling)
-│   ├── aqua-sim-routing-evbf.*     # EVBF (Linear Penalty)
-│   ├── aqua-sim-routing-evbfv2.*   # EVBFv2 (Inverse Scaling)
-│   └── aqua-sim-routing-{vbf,dbr,flooding}.*  # Original protocols
+│   ├── aqua-sim-routing-edbr.*     # EDBR (Linear Energy)
+│   ├── aqua-sim-routing-edbrv2.*   # EDBRv2 (Inverse Energy)
+│   ├── aqua-sim-routing-edbrv3.*   # EDBRv3 (Linear SNR+Energy)
+│   ├── aqua-sim-routing-edbrv4.*   # EDBRv4 (Inverse SNR+Energy)
+│   ├── aqua-sim-routing-evbf.*     # EVBF (Linear Energy)
+│   ├── aqua-sim-routing-evbfv2.*   # EVBFv2 (Inverse Energy)
+│   ├── aqua-sim-routing-evbfv3.*   # EVBFv3 (Linear SNR+Energy)
+│   └── aqua-sim-routing-evbfv4.*   # EVBFv4 (Inverse SNR+Energy)
 │
 ├── src/uswn-research.cc/
 │   └── uwsn-research_v2.cc     # NS-3 simulation code
 │
-├── results/                    # CSV simulation results
 ├── docs/                       # Additional documentation
+├── results/                    # CSV simulation results
 └── README.md
 ```
 
@@ -167,49 +177,32 @@ NS3-Research/
 
 ## 🛠️ CLI Reference
 
-All GUI functionality is available via command line:
-
 ### Basic Usage
 
 ```bash
-# Run with default settings (all 7 protocols)
+# Run with all 11 protocols
 python3 scripts/run_all.py
 
-# Specify protocols
-python3 scripts/run_all.py --protocols VBF DBR EDBR EDBRv2 EVBF EVBFv2
+# Compare SNR+Energy protocols
+python3 scripts/run_all.py --protocols EDBRv3 EDBRv4 EVBFv3 EVBFv4
 
-# Quick test (fewer runs)
-python3 scripts/run_all.py --protocols EDBR EDBRv2 EVBF EVBFv2 --nodes 50 --runs 3 --skip-build
-```
-
-### Parameter Sweeps
-
-```bash
-# Compare linear vs inverse scaling
-python3 scripts/run_all.py --protocols EDBR EDBRv2 EVBF EVBFv2 --nodes 100 --runs 10
-
-# Sweep node counts
-python3 scripts/run_all.py --protocols VBF EVBF EVBFv2 --nodes 50 100 200 --runs 5
-
-# Sweep communication range
-python3 scripts/run_all.py --protocols EDBR EDBRv2 --range 100 150 200 --nodes 100
+# Quick test
+python3 scripts/run_all.py --protocols EDBRv3 EDBRv4 --nodes 50 --runs 3 --skip-build
 ```
 
 ### All CLI Options
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--protocols` | VBF DBR flooding EDBR EVBF EDBRv2 EVBFv2 | Protocols to test |
-| `--nodes` | 100 | Node count(s) - supports multiple values |
+| `--protocols` | All 11 protocols | Protocols to test |
+| `--nodes` | 100 | Node count(s) |
 | `--runs` | 30 | Iterations per configuration |
-| `--simtime` | 1000 | Simulation time in seconds |
-| `--range` | 100 | Communication range in meters |
-| `--initial-energy` | 500.0 | Initial battery energy in Joules |
-| `--area-x` | 400.0 | Network X dimension (meters) |
-| `--area-y` | 400.0 | Network Y dimension (meters) |
-| `--min-z` | 0.0 | Minimum depth (meters) |
-| `--max-z` | 400.0 | Maximum depth (meters) |
-| `--vbf-width` | 100.0 | VBF/EVBF routing pipe width (meters) |
+| `--simtime` | 1000 | Simulation time (seconds) |
+| `--range` | 100 | Communication range (meters) |
+| `--initial-energy` | 500.0 | Initial battery energy (Joules) |
+| `--area-x`, `--area-y` | 400.0 | Network dimensions (meters) |
+| `--min-z`, `--max-z` | 0.0, 400.0 | Depth range (meters) |
+| `--vbf-width` | 100.0 | VBF routing pipe width (meters) |
 | `--mobility` | random | Mobility model: `random` or `fixed` |
 | `--skip-build` | false | Skip NS-3 rebuild |
 
@@ -232,29 +225,18 @@ python3 scripts/run_all.py --protocols EDBR EDBRv2 --range 100 150 200 --nodes 1
 
 ### Dashboard won't start
 ```bash
-# Check logs
 cat scripts/server.log
-
-# Restart
 pkill -f combined_server
 python3 scripts/start_dashboard.py
 ```
 
 ### Protocols not available
 ```bash
-# Manually run the installer
 bash scripts/install_edbr_evbf.sh
 ```
 
-### Low PDR (0%)
-- Increase `--range` (e.g., 150m)
-- Increase `--nodes` (e.g., 200)
-- Check network connectivity in sparse configurations
-- Try reducing `--max-z` to bring nodes closer together
-
 ### Build errors after code changes
 ```bash
-# Force rebuild
 cd ~/ns3/ns-allinone-3.42/ns-3.42
 ./ns3 clean
 ./ns3 configure --enable-examples
@@ -276,11 +258,16 @@ cd ~/ns3/ns-allinone-3.42/ns-3.42
 
 | Version | Changes |
 |---------|---------|
-| **v2.0** | Added EDBRv2, EVBFv2 (Inverse Scaling variants) |
-| **v1.5** | Added EDBR, EVBF (Linear Penalty variants) |
-| **v1.0** | Initial release with VBF, DBR, Flooding |
+| **v0.7** | Added EDBRv3, EDBRv4, EVBFv3, EVBFv4 (SNR+Energy-aware protocols) |
+| **v0.6** | Added EDBRv2, EVBFv2 (Inverse Scaling variants) |
+| **v0.5** | Added EDBR, EVBF (Linear Penalty variants) |
+| **v0.4** | Web dashboard with parameter sweeping |
+| **v0.3** | Network lifetime analytics |
+| **v0.2** | CLI automation and plotting |
+| **v0.1** | Initial release with VBF, DBR, Flooding |
 
 ---
 
+**Developed by Eng. Ahmed Amin**  
 **Verified for NS-3.42 on Linux (Ubuntu 22.04+)**  
 **AquaSim-NG compatibility: Tested with contrib/aqua-sim-ng**

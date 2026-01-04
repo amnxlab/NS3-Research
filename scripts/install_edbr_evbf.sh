@@ -143,6 +143,94 @@ else
     echo "Added aqua-sim-routing-evbfv2.h to headers"
 fi
 
+# ========== EDBRv3 and EVBFv3 (v3 with SNR factor) ==========
+
+# Copy EDBRv3 files
+echo ""
+echo "Copying EDBRv3 files..."
+cp -v "$MODELS_DIR/aqua-sim-routing-edbrv3.h" "$AQUASIM_MODEL_DIR/"
+cp -v "$MODELS_DIR/aqua-sim-routing-edbrv3.cc" "$AQUASIM_MODEL_DIR/"
+
+# Copy EVBFv3 files
+echo ""
+echo "Copying EVBFv3 files..."
+cp -v "$MODELS_DIR/aqua-sim-routing-evbfv3.h" "$AQUASIM_MODEL_DIR/"
+cp -v "$MODELS_DIR/aqua-sim-routing-evbfv3.cc" "$AQUASIM_MODEL_DIR/"
+
+# Add EDBRv3 to CMakeLists.txt
+if grep -q "aqua-sim-routing-edbrv3" "$CMAKE_FILE"; then
+    echo "EDBRv3 already in CMakeLists.txt - skipping"
+else
+    sed -i '/model\/aqua-sim-routing-edbrv2.cc/a\    model/aqua-sim-routing-edbrv3.cc' "$CMAKE_FILE"
+    echo "Added aqua-sim-routing-edbrv3.cc to sources"
+fi
+
+if grep -q "model\/aqua-sim-routing-edbrv3.h" "$CMAKE_FILE"; then
+    echo "EDBRv3 header already in CMakeLists.txt - skipping"
+else
+    sed -i '/model\/aqua-sim-routing-edbrv2.h/a\    model/aqua-sim-routing-edbrv3.h' "$CMAKE_FILE"
+    echo "Added aqua-sim-routing-edbrv3.h to headers"
+fi
+
+# Add EVBFv3 to CMakeLists.txt
+if grep -q "aqua-sim-routing-evbfv3" "$CMAKE_FILE"; then
+    echo "EVBFv3 already in CMakeLists.txt - skipping"
+else
+    sed -i '/model\/aqua-sim-routing-evbfv2.cc/a\    model/aqua-sim-routing-evbfv3.cc' "$CMAKE_FILE"
+    echo "Added aqua-sim-routing-evbfv3.cc to sources"
+fi
+
+if grep -q "model\/aqua-sim-routing-evbfv3.h" "$CMAKE_FILE"; then
+    echo "EVBFv3 header already in CMakeLists.txt - skipping"
+else
+    sed -i '/model\/aqua-sim-routing-evbfv2.h/a\    model/aqua-sim-routing-evbfv3.h' "$CMAKE_FILE"
+    echo "Added aqua-sim-routing-evbfv3.h to headers"
+fi
+
+# ========== EDBRv4 and EVBFv4 (v4 INVERSE with SNR) ==========
+
+# Copy EDBRv4 files
+echo ""
+echo "Copying EDBRv4 files (INVERSE mode with SNR)..."
+cp -v "$MODELS_DIR/aqua-sim-routing-edbrv4.h" "$AQUASIM_MODEL_DIR/"
+cp -v "$MODELS_DIR/aqua-sim-routing-edbrv4.cc" "$AQUASIM_MODEL_DIR/"
+
+# Copy EVBFv4 files
+echo ""
+echo "Copying EVBFv4 files (INVERSE mode with SNR)..."
+cp -v "$MODELS_DIR/aqua-sim-routing-evbfv4.h" "$AQUASIM_MODEL_DIR/"
+cp -v "$MODELS_DIR/aqua-sim-routing-evbfv4.cc" "$AQUASIM_MODEL_DIR/"
+
+# Add EDBRv4 to CMakeLists.txt
+if grep -q "aqua-sim-routing-edbrv4" "$CMAKE_FILE"; then
+    echo "EDBRv4 already in CMakeLists.txt - skipping"
+else
+    sed -i '/model\/aqua-sim-routing-edbrv3.cc/a\    model/aqua-sim-routing-edbrv4.cc' "$CMAKE_FILE"
+    echo "Added aqua-sim-routing-edbrv4.cc to sources"
+fi
+
+if grep -q "model\/aqua-sim-routing-edbrv4.h" "$CMAKE_FILE"; then
+    echo "EDBRv4 header already in CMakeLists.txt - skipping"
+else
+    sed -i '/model\/aqua-sim-routing-edbrv3.h/a\    model/aqua-sim-routing-edbrv4.h' "$CMAKE_FILE"
+    echo "Added aqua-sim-routing-edbrv4.h to headers"
+fi
+
+# Add EVBFv4 to CMakeLists.txt
+if grep -q "aqua-sim-routing-evbfv4" "$CMAKE_FILE"; then
+    echo "EVBFv4 already in CMakeLists.txt - skipping"
+else
+    sed -i '/model\/aqua-sim-routing-evbfv3.cc/a\    model/aqua-sim-routing-evbfv4.cc' "$CMAKE_FILE"
+    echo "Added aqua-sim-routing-evbfv4.cc to sources"
+fi
+
+if grep -q "model\/aqua-sim-routing-evbfv4.h" "$CMAKE_FILE"; then
+    echo "EVBFv4 header already in CMakeLists.txt - skipping"
+else
+    sed -i '/model\/aqua-sim-routing-evbfv3.h/a\    model/aqua-sim-routing-evbfv4.h' "$CMAKE_FILE"
+    echo "Added aqua-sim-routing-evbfv4.h to headers"
+fi
+
 # Rebuild NS-3
 echo ""
 echo "=== Rebuilding NS-3 ==="
@@ -152,8 +240,22 @@ cd "$NS3_DIR"
 
 echo ""
 echo "=== Installation Complete ==="
-echo "EDBR and EVBF are now available as protocols."
+echo "All energy-aware protocols are now available:"
+echo ""
+echo "  DBR-based protocols:"
+echo "    - EDBR   (v1 Linear Energy)"
+echo "    - EDBRv2 (v2 Inverse Energy)"
+echo "    - EDBRv3 (v3 Linear Energy + SNR)"
+echo "    - EDBRv4 (v4 Inverse Energy + SNR)"
+echo ""
+echo "  VBF-based protocols:"
+echo "    - EVBF   (v1 Linear Energy)"
+echo "    - EVBFv2 (v2 Inverse Energy)"
+echo "    - EVBFv3 (v3 Linear Energy + SNR)"
+echo "    - EVBFv4 (v4 Inverse Energy + SNR)"
 echo ""
 echo "Test with:"
-echo "  ./ns3 run 'uwsn-research_v2 --protocol=EDBR --nodes=50 --simStop=100'"
-echo "  ./ns3 run 'uwsn-research_v2 --protocol=EVBF --nodes=50 --simStop=100'"
+echo "  ./ns3 run 'uwsn-research_v2 --protocol=EDBRv3 --nodes=50 --simStop=100'  # Linear SNR"
+echo "  ./ns3 run 'uwsn-research_v2 --protocol=EDBRv4 --nodes=50 --simStop=100'  # Inverse SNR"
+
+
